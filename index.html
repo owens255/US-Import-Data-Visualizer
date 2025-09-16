@@ -517,49 +517,58 @@
             loadingStatus.textContent = `Loading ${country} data...`;
             
             try {
-                // Try multiple URL patterns to find the file
-                const possibleUrls = [
-                    `./data/${country}.xlsx`,  // Relative to current page
-                    `../data/${country}.xlsx`,  // Up one level
-                    `data/${country}.xlsx`,     // Direct relative
-                    `/data/${country}.xlsx`,    // Root relative
-                    `${window.location.origin}${window.location.pathname.replace(/\/[^\/]*$/, '')}/data/${country}.xlsx`, // Full path based on current location
-                ];
+                // Get the base path for GitHub Pages
+                // This assumes your HTML file is at the root and data folder is also at root
+                let baseUrl = '';
                 
-                let response;
-                let successUrl = null;
-                
-                // Try each URL until one works
-                for (const url of possibleUrls) {
-                    try {
-                        response = await fetch(url);
-                        if (response.ok) {
-                            successUrl = url;
-                            console.log(`Successfully loaded from: ${url}`);
-                            break;
-                        }
-                    } catch (e) {
-                        console.log(`Failed to load from: ${url}`);
+                // Check if we're on GitHub Pages
+                if (window.location.hostname.includes('github.io')) {
+                    // Extract the repository name from the URL
+                    const pathParts = window.location.pathname.split('/').filter(p => p);
+                    if (pathParts.length > 0 && !pathParts[0].includes('.html')) {
+                        // We're in a repository subfolder on GitHub Pages
+                        baseUrl = `/${pathParts[0]}`;
                     }
                 }
                 
-                if (!successUrl || !response.ok) {
-                    throw new Error(`Failed to load ${country} data from any location`);
+                // Construct the file URL
+                const fileUrl = `${baseUrl}/data/${country}.xlsx`;
+                
+                console.log(`Attempting to load from: ${fileUrl}`);
+                console.log(`Current location: ${window.location.href}`);
+                
+                const response = await fetch(fileUrl);
+                
+                if (!response.ok) {
+                    // If that didn't work, try without the base URL
+                    console.log(`First attempt failed, trying: data/${country}.xlsx`);
+                    const response2 = await fetch(`data/${country}.xlsx`);
+                    if (!response2.ok) {
+                        throw new Error(`Failed to load ${country} data. Status: ${response2.status}`);
+                    }
+                    const arrayBuffer = await response2.arrayBuffer();
+                    const data = new Uint8Array(arrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    processWorkbook(workbook);
+                } else {
+                    const arrayBuffer = await response.arrayBuffer();
+                    const data = new Uint8Array(arrayBuffer);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    processWorkbook(workbook);
                 }
                 
-                const arrayBuffer = await response.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                
-                processWorkbook(workbook);
                 loadingStatus.textContent = `✅ Successfully loaded ${country} data!`;
                 setTimeout(() => {
                     loadingStatus.style.display = 'none';
                 }, 3000);
                 
             } catch (error) {
-                console.error('Error loading GitHub file:', error);
-                loadingStatus.textContent = `❌ Error loading ${country} data: ${error.message}`;
+                console.error('Error loading file:', error);
+                console.error('Full error details:', error.stack);
+                loadingStatus.innerHTML = `❌ Error loading ${country} data. Check browser console for details.<br>
+                    <small>Make sure the file exists at: data/${country}.xlsx</small>`;
                 setTimeout(() => {
                     loadingStatus.style.display = 'none';
                 }, 5000);
