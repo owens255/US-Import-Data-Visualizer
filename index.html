@@ -487,7 +487,15 @@
         let currentChartType = 'line'; // New variable for chart type
 
         // GitHub repo base URL - update this with your GitHub username and repo name
-        const GITHUB_BASE_URL = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/data/';
+        // For GitHub Pages, try using relative path first, fallback to raw.githubusercontent.com
+        const REPO_NAME = 'YOUR_REPO'; // Replace with your actual repo name
+        const GITHUB_USERNAME = 'YOUR_USERNAME'; // Replace with your GitHub username
+        
+        // This will work for GitHub Pages hosted at username.github.io/repo-name
+        const isGitHubPages = window.location.hostname.includes('github.io');
+        const GITHUB_BASE_URL = isGitHubPages 
+            ? `/${REPO_NAME}/data/`  // For GitHub Pages, use relative path
+            : `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/data/`; // For local testing
 
         window.addEventListener('DOMContentLoaded', function() {
             document.getElementById('file-upload').addEventListener('change', handleFileUpload);
@@ -509,13 +517,34 @@
             loadingStatus.textContent = `Loading ${country} data...`;
             
             try {
-                // Construct the URL for the Excel file
-                const fileUrl = `${GITHUB_BASE_URL}${country}.xlsx`;
+                // Try multiple URL patterns to find the file
+                const possibleUrls = [
+                    `./data/${country}.xlsx`,  // Relative to current page
+                    `../data/${country}.xlsx`,  // Up one level
+                    `data/${country}.xlsx`,     // Direct relative
+                    `/data/${country}.xlsx`,    // Root relative
+                    `${window.location.origin}${window.location.pathname.replace(/\/[^\/]*$/, '')}/data/${country}.xlsx`, // Full path based on current location
+                ];
                 
-                // Fetch the file from GitHub
-                const response = await fetch(fileUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to load ${country} data`);
+                let response;
+                let successUrl = null;
+                
+                // Try each URL until one works
+                for (const url of possibleUrls) {
+                    try {
+                        response = await fetch(url);
+                        if (response.ok) {
+                            successUrl = url;
+                            console.log(`Successfully loaded from: ${url}`);
+                            break;
+                        }
+                    } catch (e) {
+                        console.log(`Failed to load from: ${url}`);
+                    }
+                }
+                
+                if (!successUrl || !response.ok) {
+                    throw new Error(`Failed to load ${country} data from any location`);
                 }
                 
                 const arrayBuffer = await response.arrayBuffer();
