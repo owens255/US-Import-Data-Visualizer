@@ -186,6 +186,7 @@
             text-align: center;
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         
         .month-item:hover {
@@ -196,6 +197,17 @@
         .month-item.no-data {
             background: #eeeeee;
             color: #bdbdbd;
+        }
+        
+        .change-indicator {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 0.7em;
+            font-weight: bold;
+            padding: 2px 4px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.8);
         }
         
         .month-name {
@@ -621,16 +633,23 @@
                 </div>
             `;
             
-            Object.keys(product.dataByYear).sort().reverse().forEach(year => {
+            const sortedYears = Object.keys(product.dataByYear).sort().reverse();
+            const yearsAscending = Object.keys(product.dataByYear).sort(); // For finding previous year data
+            
+            sortedYears.forEach((year, yearIndex) => {
                 const yearData = product.dataByYear[year];
                 if (!yearData) return;
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
                 const unit = yearData.unit || '';
                 
+                // Find previous year data for comparison
+                const prevYearInt = parseInt(year) - 1;
+                const prevYearStr = prevYearInt.toString();
+                const prevYearData = product.dataByYear[prevYearStr];
+                
                 let hasData = false;
                 let displayUnit = '';
-                let monthlyData = {};
                 if (currentView === 'pricePerUnit') {
                     if (Object.keys(valueData).length > 0 && Object.keys(quantityData).length > 0) hasData = true;
                     displayUnit = `$ per ${unit || 'Unit'}`;
@@ -645,19 +664,53 @@
                 if (hasData) {
                     html += `<div class="year-section"><div class="year-header">📅 ${year}<span class="unit-badge">${displayUnit}</span></div><div class="month-grid">`;
                     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    
                     months.forEach(month => {
-                        let val;
+                        let val, prevVal;
+                        
+                        // Calculate current value
                         if (currentView === 'pricePerUnit') {
-                            if (valueData[month] && quantityData[month] > 0) val = valueData[month] / quantityData[month];
+                            if (valueData[month] && quantityData[month] > 0) {
+                                val = valueData[month] / quantityData[month];
+                            }
+                            // Calculate previous year value
+                            if (prevYearData && prevYearData.value && prevYearData.quantity) {
+                                if (prevYearData.value[month] && prevYearData.quantity[month] > 0) {
+                                    prevVal = prevYearData.value[month] / prevYearData.quantity[month];
+                                }
+                            }
                         } else if (currentView === 'value') {
                             val = valueData[month];
+                            if (prevYearData && prevYearData.value) {
+                                prevVal = prevYearData.value[month];
+                            }
                         } else {
                             val = quantityData[month];
+                            if (prevYearData && prevYearData.quantity) {
+                                prevVal = prevYearData.quantity[month];
+                            }
                         }
 
                         if (val > 0) {
                             const formatted = currentView === 'pricePerUnit' ? val.toFixed(2) : val.toLocaleString();
-                            html += `<div class="month-item"><div class="month-name">${month}</div><div class="value">${formatted}</div></div>`;
+                            
+                            // Calculate color based on year-over-year change
+                            let bgColor = '#ffffff'; // Default white
+                            let changePercent = null;
+                            
+                            if (prevVal && prevVal > 0) {
+                                changePercent = ((val - prevVal) / prevVal) * 100;
+                                bgColor = getColorForChange(changePercent);
+                            }
+                            
+                            let changeIndicator = '';
+                            if (changePercent !== null) {
+                                const arrow = changePercent > 0 ? '↑' : changePercent < 0 ? '↓' : '→';
+                                const absChange = Math.abs(changePercent);
+                                changeIndicator = `<span class="change-indicator">${arrow} ${absChange.toFixed(0)}%</span>`;
+                            }
+                            
+                            html += `<div class="month-item" style="background: ${bgColor};"><div class="month-name">${month}</div><div class="value">${formatted}</div>${changeIndicator}</div>`;
                         } else {
                             html += `<div class="month-item no-data"><div class="month-name">${month}</div><div class="value">-</div></div>`;
                         }
@@ -671,6 +724,35 @@
             
             resultsDiv.innerHTML = html;
             drawChart(product); // Draw the chart after rendering the canvas
+        }
+        
+        function getColorForChange(percentChange) {
+            // Clamp the change to -100% to +100% for color calculation
+            const clampedChange = Math.max(-100, Math.min(100, percentChange));
+            
+            if (Math.abs(clampedChange) < 0.5) {
+                return '#ffffff'; // White for essentially no change
+            }
+            
+            // Calculate intensity (0 to 1) based on the magnitude of change
+            // Changes of 100% or more get maximum intensity
+            const intensity = Math.min(Math.abs(clampedChange) / 100, 1);
+            
+            if (clampedChange > 0) {
+                // Red for increases - deeper red for bigger increases
+                // Start from light pink and go to deep red
+                const r = 255;
+                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
+                const b = Math.round(255 - (intensity * 155)); // from 255 to 100
+                return `rgb(${r}, ${g}, ${b})`;
+            } else {
+                // Blue for decreases - deeper blue for bigger decreases
+                // Start from light blue and go to deep blue
+                const r = Math.round(255 - (intensity * 155)); // from 255 to 100
+                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
+                const b = 255;
+                return `rgb(${r}, ${g}, ${b})`;
+            }
         }
 
         function drawChart(product) {
@@ -749,7 +831,7 @@
             }
         };
 
-        function exportProductData() {
+        window.exportProductData = function() {
             if (!currentProduct) {
                 alert("Please select a product first.");
                 return;
@@ -784,7 +866,7 @@
 
             const filename = `HTS_${currentProduct.htsCode}_Data.xlsx`;
             XLSX.writeFile(wb, filename);
-        }
+        };
     </script>
 </body>
 </html>
