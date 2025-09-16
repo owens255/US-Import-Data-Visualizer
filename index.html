@@ -140,6 +140,13 @@
             margin-bottom: 20px;
             border-left: 5px solid var(--primary-color);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .product-info h2 {
+            margin-bottom: 5px;
         }
         
         .unit-badge {
@@ -359,6 +366,30 @@
         .back-button:hover {
             background: #e0e0e0;
         }
+
+        .chart-controls {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .toggle-button {
+            padding: 8px 15px;
+            background: var(--secondary-color);
+            color: var(--light-text-color);
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s ease;
+        }
+
+        .toggle-button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
     </style>
 </head>
 <body>
@@ -404,7 +435,9 @@
         let currentProduct = null;
         let selectedCountry = '';
         let timeSeriesChart = null;
-        
+        let recentChart = null;
+        let currentChartType = 'line'; // New variable for chart type
+
         window.addEventListener('DOMContentLoaded', function() {
             document.getElementById('file-upload').addEventListener('change', handleFileUpload);
             document.getElementById('searchBtn').addEventListener('click', searchProduct);
@@ -589,6 +622,7 @@
         function showProductSelection(products, searchTerm) {
             const resultsDiv = document.getElementById('results');
             if (timeSeriesChart) timeSeriesChart.destroy();
+            if (recentChart) recentChart.destroy();
             const productLookup = {};
             products.forEach(p => productLookup[p.htsCode] = p);
             window.lastSearchResults = productLookup;
@@ -630,6 +664,10 @@
                     <p><strong>Description:</strong> ${product.description || 'N/A'}</p>
                     <p><strong>Country:</strong> ${product.country}</p>
                     <button id="exportBtn" onclick="exportProductData()">Export to Excel</button>
+                </div>
+                <div class="chart-controls">
+                    <button class="toggle-button ${currentChartType === 'line' ? 'active' : ''}" onclick="switchChartType('line')">Line Chart</button>
+                    <button class="toggle-button ${currentChartType === 'bar' ? 'active' : ''}" onclick="switchChartType('bar')">Bar Chart</button>
                 </div>
             `;
             
@@ -719,11 +757,21 @@
                 }
             });
 
-            // Add container for the chart
-            html += `<div class="chart-container"><canvas id="timeSeriesChart"></canvas></div>`;
+            // Add container for the charts
+            html += `<div class="chart-container">
+                        <h3>Historical Trend</h3>
+                        <canvas id="timeSeriesChart"></canvas>
+                     </div>`;
             
+            // Add container for the recent chart
+            html += `<div class="chart-container">
+                        <h3>Recent Trend (2025 onwards)</h3>
+                        <canvas id="recentChart"></canvas>
+                     </div>`;
+
             resultsDiv.innerHTML = html;
-            drawChart(product); // Draw the chart after rendering the canvas
+            drawChart(product, 'timeSeriesChart', currentChartType);
+            drawRecentChart(product, 'recentChart', currentChartType);
         }
         
         function getColorForChange(percentChange) {
@@ -755,9 +803,11 @@
             }
         }
 
-        function drawChart(product) {
-            if (timeSeriesChart) {
+        function drawChart(product, canvasId, type) {
+            if (canvasId === 'timeSeriesChart' && timeSeriesChart) {
                 timeSeriesChart.destroy();
+            } else if (canvasId === 'recentChart' && recentChart) {
+                recentChart.destroy();
             }
 
             const chartLabels = [];
@@ -796,19 +846,92 @@
 
             if (chartData.length === 0) return; // Don't draw an empty chart
 
-            const ctx = document.getElementById('timeSeriesChart').getContext('2d');
-            timeSeriesChart = new Chart(ctx, {
-                type: 'line',
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const newChart = new Chart(ctx, {
+                type: type,
                 data: {
                     labels: chartLabels,
                     datasets: [{
                         label: chartLabel,
                         data: chartData,
                         borderColor: 'rgba(63, 81, 181, 1)',
-                        backgroundColor: 'rgba(63, 81, 181, 0.2)',
+                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
                         borderWidth: 2,
                         tension: 0.1,
-                        fill: true
+                        fill: type === 'line'
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { title: { display: true, text: `Monthly Trend: ${chartLabel}` } }
+                }
+            });
+
+            if (canvasId === 'timeSeriesChart') {
+                timeSeriesChart = newChart;
+            } else {
+                recentChart = newChart;
+            }
+        }
+        
+        function drawRecentChart(product, canvasId, type) {
+            if (recentChart) {
+                recentChart.destroy();
+            }
+
+            const chartLabels = [];
+            const chartData = [];
+            let chartLabel = '';
+
+            const years = Object.keys(product.dataByYear).sort().filter(y => parseInt(y) >= 2025);
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+            years.forEach(year => {
+                const yearData = product.dataByYear[year];
+                const valueData = yearData.value || {};
+                const quantityData = yearData.quantity || {};
+
+                months.forEach((month, index) => {
+                    let dataPoint;
+                    if (currentView === 'pricePerUnit') {
+                        chartLabel = 'Price Per Unit';
+                        if (valueData[month] && quantityData[month] > 0) {
+                            dataPoint = valueData[month] / quantityData[month];
+                        }
+                    } else if (currentView === 'value') {
+                        chartLabel = 'Customs Value ($)';
+                        dataPoint = valueData[month];
+                    } else { // quantity
+                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
+                        dataPoint = quantityData[month];
+                    }
+
+                    if (dataPoint) {
+                        chartLabels.push(`${month.substring(0,3)} ${year}`);
+                        chartData.push(dataPoint);
+                    }
+                });
+            });
+            
+            if (chartData.length === 0) {
+                document.getElementById(canvasId).parentElement.style.display = 'none';
+                return;
+            }
+            document.getElementById(canvasId).parentElement.style.display = 'block';
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            recentChart = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: chartLabel,
+                        data: chartData,
+                        borderColor: 'rgba(63, 81, 181, 1)',
+                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: type === 'line'
                     }]
                 },
                 options: {
@@ -866,6 +989,16 @@
 
             const filename = `HTS_${currentProduct.htsCode}_Data.xlsx`;
             XLSX.writeFile(wb, filename);
+        };
+        
+        window.switchChartType = function(type) {
+            currentChartType = type;
+            document.querySelectorAll('.toggle-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`.toggle-button[onclick="switchChartType('${type}')"]`).classList.add('active');
+            if (currentProduct) {
+                drawChart(currentProduct, 'timeSeriesChart', currentChartType);
+                drawRecentChart(currentProduct, 'recentChart', currentChartType);
+            }
         };
     </script>
 </body>
