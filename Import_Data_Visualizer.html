@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTS Import Data Query Tool</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Updated color scheme for a more professional look */
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --background-gradient: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            --text-color: #333;
+            --light-text-color: #ecf0f1;
+            --container-bg: rgba(255, 255, 255, 0.98);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--background-gradient);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            background: var(--container-bg);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: var(--secondary-color);
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .controls-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        
+        .country-selector {
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .country-selector:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        input[type="text"] {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+        
+        button {
+            padding: 15px 30px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            background: #2980b9;
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .product-info {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid var(--primary-color);
+        }
+        
+        .unit-badge {
+            display: inline-block;
+            background: var(--secondary-color);
+            color: var(--light-text-color);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+        
+        .year-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .year-header {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .month-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .month-item {
+            background: var(--secondary-color);
+            color: var(--light-text-color);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            transition: transform 0.2s ease;
+        }
+        
+        .month-item:hover {
+            transform: scale(1.05);
+        }
+        
+        .month-item.no-data {
+            background: #e0e0e0;
+            color: #999;
+        }
+        
+        .month-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .value {
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+        
+        .error {
+            background-color: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 10px;
+            border-left: 4px solid #c33;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 2px dashed var(--primary-color);
+        }
+        
+        .file-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+        
+        .file-label:hover {
+            background: #2980b9;
+        }
+        
+        .stats {
+            background: #f0f0f0;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .info-box {
+            background: #eaf5fb;
+            border: 1px solid #bee5eb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #0c5460;
+        }
+
+        .chart-container {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 HTS Import Data Query Tool</h1>
+        <p class="subtitle">Search customs value and quantity data by HTS code or product description</p>
+        
+        <div class="upload-section">
+            <h3>Step 1: Upload Your Import Data Excel File</h3>
+            <label for="file-upload" class="file-label">
+                Choose Excel File
+            </label>
+            <input type="file" id="file-upload" accept=".xlsx,.xls,.csv">
+            <div class="file-info" id="file-info"></div>
+        </div>
+        
+        <div class="info-box" id="country-info" style="display:none;">
+            <strong>Countries found in data:</strong> <span id="country-list"></span>
+        </div>
+        
+        <div class="controls-row">
+            <select class="country-selector" id="countrySelector" disabled>
+                <option value="">Select Country...</option>
+            </select>
+            <input type="text" id="searchInput" placeholder="Enter HTS code or product description..." disabled>
+            <button id="searchBtn" disabled>Search</button>
+        </div>
+        
+        <div class="tabs" id="tabs" style="display: none;">
+            <button class="tab active" id="pricePerUnitTab">Price Per Unit ($/Unit)</button>
+            <button class="tab" id="valueTab">Customs Value ($)</button>
+            <button class="tab" id="quantityTab">Quantity</button>
+        </div>
+        
+        <div id="results" class="results"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let allProductData = {};
+        let countriesSet = new Set();
+        let currentView = 'pricePerUnit';
+        let currentProduct = null;
+        let selectedCountry = '';
+        let timeSeriesChart = null;
+        
+        window.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+            document.getElementById('searchBtn').addEventListener('click', searchProduct);
+            document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') searchProduct(); });
+            document.getElementById('pricePerUnitTab').addEventListener('click', () => switchTab('pricePerUnit'));
+            document.getElementById('valueTab').addEventListener('click', () => switchTab('value'));
+            document.getElementById('quantityTab').addEventListener('click', () => switchTab('quantity'));
+            document.getElementById('countrySelector').addEventListener('change', e => {
+                selectedCountry = e.target.value;
+                document.getElementById('searchInput').disabled = !selectedCountry;
+                document.getElementById('searchBtn').disabled = !selectedCountry;
+            });
+        });
+        
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            document.getElementById('file-info').innerHTML = `📁 Loading: ${file.name}...`;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    processWorkbook(workbook);
+                } catch (error) {
+                    console.error('Error processing Excel:', error);
+                    document.getElementById('file-info').innerHTML = `<span style="color: red;">Error processing file: ${error.message}</span>`;
+                }
+            };
+            reader.onerror = () => {
+                document.getElementById('file-info').innerHTML = '<span style="color: red;">Error reading file</span>';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processWorkbook(workbook) {
+            allProductData = {};
+            countriesSet.clear();
+
+            let valueSheet, quantitySheet;
+            const valueSheetNames = ['General Customs Value', 'Value', 'Customs Value'];
+            const qtySheetNames = ['General 1st Unit of Qty', 'General First Unit of Quantity', 'Quantity', 'Qty'];
+
+            for (const name of valueSheetNames) { if (workbook.Sheets[name]) { valueSheet = workbook.Sheets[name]; break; } }
+            for (const name of qtySheetNames) { if (workbook.Sheets[name]) { quantitySheet = workbook.Sheets[name]; break; } }
+
+            if (!valueSheet || !quantitySheet) {
+                 document.getElementById('file-info').innerHTML = `<span style="color: red;">Error: Could not find required sheets. Ensure sheets are named 'General Customs Value' and 'General 1st Unit of Qty'.</span>`;
+                 return;
+            }
+            
+            const valueData = parseSheet(XLSX.utils.sheet_to_json(valueSheet, { header: 1 }), 'value');
+            const quantityData = parseSheet(XLSX.utils.sheet_to_json(quantitySheet, { header: 1 }), 'quantity');
+
+            allProductData = mergeData(valueData, quantityData);
+            
+            const numProducts = Object.keys(allProductData).length;
+            if (numProducts > 0) {
+                populateCountrySelector();
+                document.getElementById('file-info').innerHTML = `✅ Successfully loaded! Found data for ${numProducts} products from ${countriesSet.size} countries.`;
+                document.getElementById('country-info').style.display = 'block';
+                document.getElementById('country-list').textContent = Array.from(countriesSet).sort().join(', ');
+            } else {
+                document.getElementById('file-info').innerHTML = '<span style="color: red;">No data found in file. Please check the format.</span>';
+            }
+        }
+
+        function parseSheet(sheetDataAsJson, dataType) {
+            const parsedData = {};
+            let headerRowIndex = sheetDataAsJson.findIndex(row => row && row.join(' ').toLowerCase().includes('country'));
+            if (headerRowIndex === -1) headerRowIndex = 2;
+
+            for (let i = headerRowIndex + 1; i < sheetDataAsJson.length; i++) {
+                const row = sheetDataAsJson[i];
+                if (!row || !row[2]) continue;
+
+                const country = String(row[1] || '').trim();
+                const htsCode = String(row[2] || '').trim();
+                const description = String(row[3] || '').trim();
+                const year = parseInt(row[4]);
+                const unit = String(row[5] || '').trim();
+
+                if (!country || !htsCode || !year) continue;
+                
+                countriesSet.add(country);
+                const productKey = `${htsCode}-${country}`;
+
+                if (!parsedData[productKey]) {
+                    parsedData[productKey] = { htsCode, description, country, dataByYear: {} };
+                }
+                if (!parsedData[productKey].dataByYear[year]) {
+                    parsedData[productKey].dataByYear[year] = {};
+                }
+                
+                const months = {};
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                for (let m = 0; m < 12; m++) {
+                    const cellValue = row[6 + m];
+                    if (cellValue != null && !isNaN(parseFloat(cellValue))) {
+                        const numericValue = parseFloat(cellValue);
+                        if (numericValue !== 0) months[monthNames[m]] = numericValue;
+                    }
+                }
+                
+                if (Object.keys(months).length > 0) {
+                    if (dataType === 'value') {
+                        parsedData[productKey].dataByYear[year].value = months;
+                    } else { // quantity
+                        parsedData[productKey].dataByYear[year].quantity = months;
+                        parsedData[productKey].dataByYear[year].unit = unit;
+                    }
+                }
+            }
+            return parsedData;
+        }
+
+        function mergeData(valueData, quantityData) {
+            const merged = valueData;
+
+            for (const productKey in quantityData) {
+                if (!merged[productKey]) {
+                    merged[productKey] = quantityData[productKey];
+                    continue;
+                }
+                for (const year in quantityData[productKey].dataByYear) {
+                    if (!merged[productKey].dataByYear[year]) {
+                        merged[productKey].dataByYear[year] = quantityData[productKey].dataByYear[year];
+                        continue;
+                    }
+                    const quantityYearData = quantityData[productKey].dataByYear[year];
+                    merged[productKey].dataByYear[year].quantity = quantityYearData.quantity;
+                    merged[productKey].dataByYear[year].unit = quantityYearData.unit;
+                }
+            }
+            return merged;
+        }
+
+        function populateCountrySelector() {
+            const selector = document.getElementById('countrySelector');
+            selector.innerHTML = '<option value="">Select Country...</option>';
+            Array.from(countriesSet).sort().forEach(country => {
+                const option = document.createElement('option');
+                option.value = option.textContent = country;
+                selector.appendChild(option);
+            });
+            selector.disabled = false;
+        }
+        
+        function searchProduct() {
+            const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!searchTerm) return;
+            if (!selectedCountry) return;
+            
+            const matches = Object.values(allProductData).filter(p => 
+                p.country === selectedCountry && 
+                (p.htsCode.toLowerCase().includes(searchTerm) || p.description.toLowerCase().includes(searchTerm))
+            );
+            
+            if (matches.length > 0) {
+                if (matches.length === 1) {
+                    currentProduct = matches[0];
+                    window.lastSearchResults = { [currentProduct.htsCode]: currentProduct };
+                    document.getElementById('tabs').style.display = 'flex';
+                    displayResults(currentProduct);
+                } else {
+                    document.getElementById('tabs').style.display = 'none';
+                    showProductSelection(matches, document.getElementById('searchInput').value.trim());
+                }
+            } else {
+                document.getElementById('tabs').style.display = 'none';
+                document.getElementById('results').innerHTML = `<div class="error">No products found for "${searchTerm}"</div>`;
+            }
+        }
+        
+        function showProductSelection(products, searchTerm) {
+            const resultsDiv = document.getElementById('results');
+            if (timeSeriesChart) timeSeriesChart.destroy();
+            const productLookup = {};
+            products.forEach(p => productLookup[p.htsCode] = p);
+            window.lastSearchResults = productLookup;
+            products.sort((a, b) => a.htsCode.localeCompare(b.htsCode));
+            let html = `<div class="product-selection"><h3>🔍 Found ${products.length} products matching "${searchTerm}"</h3><p style="color: #666; margin: 10px 0;">Select a product:</p><div class="product-list">`;
+            products.forEach(product => {
+                const yearsAvailable = Object.keys(product.dataByYear);
+                html += `
+                    <div class="product-card" onclick="selectSpecificProduct('${product.htsCode}')">
+                        <div class="product-card-header">
+                            <strong>HTS: ${product.htsCode}</strong>
+                            <span class="year-badge">Years: ${yearsAvailable.sort().join(', ')}</span>
+                        </div>
+                        <div class="product-card-desc">${product.description || 'No description available'}</div>
+                    </div>`;
+            });
+            html += `</div></div>`;
+            resultsDiv.innerHTML = html;
+        }
+        
+        window.selectSpecificProduct = function(htsCode) {
+            if (window.lastSearchResults && window.lastSearchResults[htsCode]) {
+                currentProduct = window.lastSearchResults[htsCode];
+                document.getElementById('tabs').style.display = 'flex';
+                displayResults(currentProduct);
+            }
+        };
+        
+        function displayResults(product) {
+            const resultsDiv = document.getElementById('results');
+            let backButton = '';
+            if (window.lastSearchResults && Object.keys(window.lastSearchResults).length > 1) {
+                backButton = `<button onclick="showLastSearchResults()" style="padding: 8px 15px; margin-bottom: 20px; font-size: 14px; border-radius: 8px; cursor: pointer; border: 1px solid #ccc;">← Back to search results</button>`;
+            }
+            
+            let html = backButton + `
+                <div class="product-info">
+                    <h2>HTS Code: ${product.htsCode}</h2>
+                    <p><strong>Description:</strong> ${product.description || 'N/A'}</p>
+                    <p><strong>Country:</strong> ${product.country}</p>
+                </div>
+            `;
+            
+            Object.keys(product.dataByYear).sort().reverse().forEach(year => {
+                const yearData = product.dataByYear[year];
+                if (!yearData) return;
+                const valueData = yearData.value || {};
+                const quantityData = yearData.quantity || {};
+                const unit = yearData.unit || '';
+                
+                let hasData = false;
+                let displayUnit = '';
+                let monthlyData = {};
+                if (currentView === 'pricePerUnit') {
+                    if (Object.keys(valueData).length > 0 && Object.keys(quantityData).length > 0) hasData = true;
+                    displayUnit = `$ per ${unit || 'Unit'}`;
+                } else if (currentView === 'value') {
+                    if (Object.keys(valueData).length > 0) hasData = true;
+                    displayUnit = 'USD';
+                } else {
+                    if (Object.keys(quantityData).length > 0) hasData = true;
+                    displayUnit = unit || 'Units';
+                }
+                
+                if (hasData) {
+                    html += `<div class="year-section"><div class="year-header">📅 ${year}<span class="unit-badge">${displayUnit}</span></div><div class="month-grid">`;
+                    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                    months.forEach(month => {
+                        let val;
+                        if (currentView === 'pricePerUnit') {
+                            if (valueData[month] && quantityData[month] > 0) val = valueData[month] / quantityData[month];
+                        } else if (currentView === 'value') {
+                            val = valueData[month];
+                        } else {
+                            val = quantityData[month];
+                        }
+
+                        if (val > 0) {
+                            const formatted = currentView === 'pricePerUnit' ? val.toFixed(2) : val.toLocaleString();
+                            html += `<div class="month-item"><div class="month-name">${month}</div><div class="value">${formatted}</div></div>`;
+                        } else {
+                            html += `<div class="month-item no-data"><div class="month-name">${month}</div><div class="value">-</div></div>`;
+                        }
+                    });
+                    html += '</div></div>';
+                }
+            });
+
+            // Add container for the chart
+            html += `<div class="chart-container"><canvas id="timeSeriesChart"></canvas></div>`;
+            
+            resultsDiv.innerHTML = html;
+            drawChart(product); // Draw the chart after rendering the canvas
+        }
+
+        function drawChart(product) {
+            if (timeSeriesChart) {
+                timeSeriesChart.destroy();
+            }
+
+            const chartLabels = [];
+            const chartData = [];
+            let chartLabel = '';
+
+            const years = Object.keys(product.dataByYear).sort();
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+            years.forEach(year => {
+                const yearData = product.dataByYear[year];
+                const valueData = yearData.value || {};
+                const quantityData = yearData.quantity || {};
+
+                months.forEach((month, index) => {
+                    let dataPoint;
+                    if (currentView === 'pricePerUnit') {
+                        chartLabel = 'Price Per Unit';
+                        if (valueData[month] && quantityData[month] > 0) {
+                            dataPoint = valueData[month] / quantityData[month];
+                        }
+                    } else if (currentView === 'value') {
+                        chartLabel = 'Customs Value ($)';
+                        dataPoint = valueData[month];
+                    } else { // quantity
+                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
+                        dataPoint = quantityData[month];
+                    }
+
+                    if (dataPoint) {
+                        chartLabels.push(`${month.substring(0,3)} ${year}`);
+                        chartData.push(dataPoint);
+                    }
+                });
+            });
+
+            if (chartData.length === 0) return; // Don't draw an empty chart
+
+            const ctx = document.getElementById('timeSeriesChart').getContext('2d');
+            timeSeriesChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: chartLabel,
+                        data: chartData,
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.2)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { title: { display: true, text: `Monthly Trend: ${chartLabel}` } }
+                }
+            });
+        }
+        
+        function switchTab(view) {
+            currentView = view;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(view + 'Tab').classList.add('active');
+            if (currentProduct) displayResults(currentProduct);
+        }
+
+        window.showLastSearchResults = function() {
+            if (window.lastSearchResults) {
+                showProductSelection(Object.values(window.lastSearchResults), document.getElementById('searchInput').value);
+            }
+        };
+    </script>
+</body>
+</html>
