@@ -517,48 +517,23 @@
             loadingStatus.textContent = `Loading ${country} data...`;
             
             try {
-                // Get the base path for GitHub Pages
-                // This assumes your HTML file is at the root and data folder is also at root
-                let baseUrl = '';
+                // For your GitHub Pages site at owens255.github.io/US-Import-Data-Visualizer/
+                // The files are at: /US-Import-Data-Visualizer/data/Country.xlsx
+                const fileUrl = `/US-Import-Data-Visualizer/data/${country}.xlsx`;
                 
-                // Check if we're on GitHub Pages
-                if (window.location.hostname.includes('github.io')) {
-                    // Extract the repository name from the URL
-                    const pathParts = window.location.pathname.split('/').filter(p => p);
-                    if (pathParts.length > 0 && !pathParts[0].includes('.html')) {
-                        // We're in a repository subfolder on GitHub Pages
-                        baseUrl = `/${pathParts[0]}`;
-                    }
-                }
-                
-                // Construct the file URL
-                const fileUrl = `${baseUrl}/data/${country}.xlsx`;
-                
-                console.log(`Attempting to load from: ${fileUrl}`);
-                console.log(`Current location: ${window.location.href}`);
+                console.log(`Loading from: ${fileUrl}`);
                 
                 const response = await fetch(fileUrl);
                 
                 if (!response.ok) {
-                    // If that didn't work, try without the base URL
-                    console.log(`First attempt failed, trying: data/${country}.xlsx`);
-                    const response2 = await fetch(`data/${country}.xlsx`);
-                    if (!response2.ok) {
-                        throw new Error(`Failed to load ${country} data. Status: ${response2.status}`);
-                    }
-                    const arrayBuffer = await response2.arrayBuffer();
-                    const data = new Uint8Array(arrayBuffer);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    processWorkbook(workbook);
-                } else {
-                    const arrayBuffer = await response.arrayBuffer();
-                    const data = new Uint8Array(arrayBuffer);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    processWorkbook(workbook);
+                    throw new Error(`Failed to load ${country} data. HTTP Status: ${response.status}`);
                 }
                 
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                processWorkbook(workbook);
                 loadingStatus.textContent = `✅ Successfully loaded ${country} data!`;
                 setTimeout(() => {
                     loadingStatus.style.display = 'none';
@@ -566,9 +541,7 @@
                 
             } catch (error) {
                 console.error('Error loading file:', error);
-                console.error('Full error details:', error.stack);
-                loadingStatus.innerHTML = `❌ Error loading ${country} data. Check browser console for details.<br>
-                    <small>Make sure the file exists at: data/${country}.xlsx</small>`;
+                loadingStatus.innerHTML = `❌ Error loading ${country} data: ${error.message}`;
                 setTimeout(() => {
                     loadingStatus.style.display = 'none';
                 }, 5000);
