@@ -433,14 +433,21 @@
             countriesSet.clear();
 
             let valueSheet, quantitySheet;
-            const valueSheetNames = ['General Customs Value', 'Value', 'Customs Value'];
-            const qtySheetNames = ['General 1st Unit of Qty', 'General First Unit of Quantity', 'Quantity', 'Qty'];
-
-            for (const name of valueSheetNames) { if (workbook.Sheets[name]) { valueSheet = workbook.Sheets[name]; break; } }
-            for (const name of qtySheetNames) { if (workbook.Sheets[name]) { quantitySheet = workbook.Sheets[name]; break; } }
+            
+            // Find the correct sheet names by checking for keywords in a case-insensitive, flexible way
+            const sheetNames = Object.keys(workbook.Sheets);
+            for (const name of sheetNames) {
+                const lowerName = name.toLowerCase();
+                if (lowerName.includes('customs value') && !valueSheet) {
+                    valueSheet = workbook.Sheets[name];
+                }
+                if (lowerName.includes('quantity') && !quantitySheet) {
+                    quantitySheet = workbook.Sheets[name];
+                }
+            }
 
             if (!valueSheet || !quantitySheet) {
-                 document.getElementById('file-info').innerHTML = `<span style="color: red;">Error: Could not find required sheets. Ensure sheets are named 'General Customs Value' and 'General 1st Unit of Qty'.</span>`;
+                 document.getElementById('file-info').innerHTML = `<span style="color: red;">Error: Could not find required sheets. Please ensure your Excel file contains a sheet for 'Customs Value' and another for 'Quantity'.</span>`;
                  return;
             }
             
@@ -610,6 +617,7 @@
                     <h2>HTS Code: ${product.htsCode}</h2>
                     <p><strong>Description:</strong> ${product.description || 'N/A'}</p>
                     <p><strong>Country:</strong> ${product.country}</p>
+                    <button id="exportBtn" onclick="exportProductData()">Export to Excel</button>
                 </div>
             `;
             
@@ -740,6 +748,43 @@
                 showProductSelection(Object.values(window.lastSearchResults), document.getElementById('searchInput').value);
             }
         };
+
+        function exportProductData() {
+            if (!currentProduct) {
+                alert("Please select a product first.");
+                return;
+            }
+
+            const data = [];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+            const header = ['Data Type', 'Country', 'HTS Number', 'Description', 'Year', 'Quantity Description', ...months];
+            data.push(header);
+
+            Object.keys(currentProduct.dataByYear).sort().forEach(year => {
+                const yearData = currentProduct.dataByYear[year];
+                
+                // Value row
+                const valueRow = ['Customs Value', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, 'Value for: ' + (yearData.unit || 'Unit')];
+                months.forEach(month => {
+                    valueRow.push(yearData.value ? (yearData.value[month] || 0) : 0);
+                });
+                data.push(valueRow);
+
+                // Quantity row
+                const quantityRow = ['First Unit of Quantity', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, yearData.unit || 'Units'];
+                months.forEach(month => {
+                    quantityRow.push(yearData.quantity ? (yearData.quantity[month] || 0) : 0);
+                });
+                data.push(quantityRow);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Product Data");
+
+            const filename = `HTS_${currentProduct.htsCode}_Data.xlsx`;
+            XLSX.writeFile(wb, filename);
+        }
     </script>
 </body>
 </html>
