@@ -390,6 +390,37 @@
             color: white;
             border-color: var(--primary-color);
         }
+
+        .shortlist-section {
+            background: #e3f2fd;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #90caf9;
+        }
+
+        .shortlist-button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: white;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .shortlist-button:hover {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .loading-indicator {
+            color: var(--primary-color);
+            font-style: italic;
+            padding: 10px;
+        }
     </style>
 </head>
 <body>
@@ -397,8 +428,25 @@
         <h1>📊 HTS Import Data Query Tool</h1>
         <p class="subtitle">Search customs value and quantity data by HTS code or product description</p>
         
+        <div class="shortlist-section">
+            <h3>Quick Load: Shortlisted Countries</h3>
+            <p style="margin-bottom: 10px; color: var(--light-text-color);">Click a country to load its data directly from GitHub:</p>
+            <div id="shortlist-buttons">
+                <button class="shortlist-button" onclick="loadGitHubFile('Canada')">🇨🇦 Canada</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('China')">🇨🇳 China</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('India')">🇮🇳 India</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('Japan')">🇯🇵 Japan</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('Mexico')">🇲🇽 Mexico</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('South Korea')">🇰🇷 South Korea</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('Taiwan')">🇹🇼 Taiwan</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('Thailand')">🇹🇭 Thailand</button>
+                <button class="shortlist-button" onclick="loadGitHubFile('Vietnam')">🇻🇳 Vietnam</button>
+            </div>
+            <div id="loading-status" class="loading-indicator" style="display: none;"></div>
+        </div>
+        
         <div class="upload-section">
-            <h3>Step 1: Upload Your Import Data Excel File</h3>
+            <h3>Or Upload Your Own Import Data Excel File</h3>
             <label for="file-upload" class="file-label">
                 Choose Excel File
             </label>
@@ -438,6 +486,9 @@
         let recentChart = null;
         let currentChartType = 'line'; // New variable for chart type
 
+        // GitHub repo base URL - update this with your GitHub username and repo name
+        const GITHUB_BASE_URL = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/data/';
+
         window.addEventListener('DOMContentLoaded', function() {
             document.getElementById('file-upload').addEventListener('change', handleFileUpload);
             document.getElementById('searchBtn').addEventListener('click', searchProduct);
@@ -451,6 +502,40 @@
                 document.getElementById('searchBtn').disabled = !selectedCountry;
             });
         });
+
+        window.loadGitHubFile = async function(country) {
+            const loadingStatus = document.getElementById('loading-status');
+            loadingStatus.style.display = 'block';
+            loadingStatus.textContent = `Loading ${country} data...`;
+            
+            try {
+                // Construct the URL for the Excel file
+                const fileUrl = `${GITHUB_BASE_URL}${country}.xlsx`;
+                
+                // Fetch the file from GitHub
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${country} data`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                processWorkbook(workbook);
+                loadingStatus.textContent = `✅ Successfully loaded ${country} data!`;
+                setTimeout(() => {
+                    loadingStatus.style.display = 'none';
+                }, 3000);
+                
+            } catch (error) {
+                console.error('Error loading GitHub file:', error);
+                loadingStatus.textContent = `❌ Error loading ${country} data: ${error.message}`;
+                setTimeout(() => {
+                    loadingStatus.style.display = 'none';
+                }, 5000);
+            }
+        };
         
         function handleFileUpload(event) {
             const file = event.target.files[0];
@@ -627,7 +712,7 @@
             products.forEach(p => productLookup[p.htsCode] = p);
             window.lastSearchResults = productLookup;
             products.sort((a, b) => a.htsCode.localeCompare(b.htsCode));
-            let html = `<div class="product-selection"><h3>🔍 Found ${products.length} products matching "${searchTerm}"</h3><p style="color: var(--light-text-color); margin: 10px 0;">Select a product to view details:</p><div class="product-list">`;
+            let html = `<div class="product-selection"><h3>🔎 Found ${products.length} products matching "${searchTerm}"</h3><p style="color: var(--light-text-color); margin: 10px 0;">Select a product to view details:</p><div class="product-list">`;
             products.forEach(product => {
                 const yearsAvailable = Object.keys(product.dataByYear);
                 html += `
@@ -772,234 +857,3 @@
             resultsDiv.innerHTML = html;
             drawChart(product, 'timeSeriesChart', currentChartType);
             drawRecentChart(product, 'recentChart', currentChartType);
-        }
-        
-        function getColorForChange(percentChange) {
-            // Clamp the change to -100% to +100% for color calculation
-            const clampedChange = Math.max(-100, Math.min(100, percentChange));
-            
-            if (Math.abs(clampedChange) < 0.5) {
-                return '#ffffff'; // White for essentially no change
-            }
-            
-            // Calculate intensity (0 to 1) based on the magnitude of change
-            // Changes of 100% or more get maximum intensity
-            const intensity = Math.min(Math.abs(clampedChange) / 100, 1);
-            
-            if (clampedChange > 0) {
-                // Red for increases - deeper red for bigger increases
-                // Start from light pink and go to deep red
-                const r = 255;
-                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
-                const b = Math.round(255 - (intensity * 155)); // from 255 to 100
-                return `rgb(${r}, ${g}, ${b})`;
-            } else {
-                // Blue for decreases - deeper blue for bigger decreases
-                // Start from light blue and go to deep blue
-                const r = Math.round(255 - (intensity * 155)); // from 255 to 100
-                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
-                const b = 255;
-                return `rgb(${r}, ${g}, ${b})`;
-            }
-        }
-
-        function drawChart(product, canvasId, type) {
-            if (canvasId === 'timeSeriesChart' && timeSeriesChart) {
-                timeSeriesChart.destroy();
-            } else if (canvasId === 'recentChart' && recentChart) {
-                recentChart.destroy();
-            }
-
-            const chartLabels = [];
-            const chartData = [];
-            let chartLabel = '';
-
-            const years = Object.keys(product.dataByYear).sort();
-            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-            years.forEach(year => {
-                const yearData = product.dataByYear[year];
-                const valueData = yearData.value || {};
-                const quantityData = yearData.quantity || {};
-
-                months.forEach((month, index) => {
-                    let dataPoint;
-                    if (currentView === 'pricePerUnit') {
-                        chartLabel = 'Price Per Unit';
-                        if (valueData[month] && quantityData[month] > 0) {
-                            dataPoint = valueData[month] / quantityData[month];
-                        }
-                    } else if (currentView === 'value') {
-                        chartLabel = 'Customs Value ($)';
-                        dataPoint = valueData[month];
-                    } else { // quantity
-                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
-                        dataPoint = quantityData[month];
-                    }
-
-                    if (dataPoint) {
-                        chartLabels.push(`${month.substring(0,3)} ${year}`);
-                        chartData.push(dataPoint);
-                    }
-                });
-            });
-
-            if (chartData.length === 0) return; // Don't draw an empty chart
-
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            const newChart = new Chart(ctx, {
-                type: type,
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: chartLabel,
-                        data: chartData,
-                        borderColor: 'rgba(63, 81, 181, 1)',
-                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: type === 'line'
-                    }]
-                },
-                options: {
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { title: { display: true, text: `Monthly Trend: ${chartLabel}` } }
-                }
-            });
-
-            if (canvasId === 'timeSeriesChart') {
-                timeSeriesChart = newChart;
-            } else {
-                recentChart = newChart;
-            }
-        }
-        
-        function drawRecentChart(product, canvasId, type) {
-            if (recentChart) {
-                recentChart.destroy();
-            }
-
-            const chartLabels = [];
-            const chartData = [];
-            let chartLabel = '';
-
-            const years = Object.keys(product.dataByYear).sort().filter(y => parseInt(y) >= 2025);
-            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-            years.forEach(year => {
-                const yearData = product.dataByYear[year];
-                const valueData = yearData.value || {};
-                const quantityData = yearData.quantity || {};
-
-                months.forEach((month, index) => {
-                    let dataPoint;
-                    if (currentView === 'pricePerUnit') {
-                        chartLabel = 'Price Per Unit';
-                        if (valueData[month] && quantityData[month] > 0) {
-                            dataPoint = valueData[month] / quantityData[month];
-                        }
-                    } else if (currentView === 'value') {
-                        chartLabel = 'Customs Value ($)';
-                        dataPoint = valueData[month];
-                    } else { // quantity
-                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
-                        dataPoint = quantityData[month];
-                    }
-
-                    if (dataPoint) {
-                        chartLabels.push(`${month.substring(0,3)} ${year}`);
-                        chartData.push(dataPoint);
-                    }
-                });
-            });
-            
-            if (chartData.length === 0) {
-                document.getElementById(canvasId).parentElement.style.display = 'none';
-                return;
-            }
-            document.getElementById(canvasId).parentElement.style.display = 'block';
-
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            recentChart = new Chart(ctx, {
-                type: type,
-                data: {
-                    labels: chartLabels,
-                    datasets: [{
-                        label: chartLabel,
-                        data: chartData,
-                        borderColor: 'rgba(63, 81, 181, 1)',
-                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: type === 'line'
-                    }]
-                },
-                options: {
-                    scales: { y: { beginAtZero: true } },
-                    plugins: { title: { display: true, text: `Monthly Trend: ${chartLabel}` } }
-                }
-            });
-        }
-        
-        function switchTab(view) {
-            currentView = view;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.getElementById(view + 'Tab').classList.add('active');
-            if (currentProduct) displayResults(currentProduct);
-        }
-
-        window.showLastSearchResults = function() {
-            if (window.lastSearchResults) {
-                showProductSelection(Object.values(window.lastSearchResults), document.getElementById('searchInput').value);
-            }
-        };
-
-        window.exportProductData = function() {
-            if (!currentProduct) {
-                alert("Please select a product first.");
-                return;
-            }
-
-            const data = [];
-            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-            const header = ['Data Type', 'Country', 'HTS Number', 'Description', 'Year', 'Quantity Description', ...months];
-            data.push(header);
-
-            Object.keys(currentProduct.dataByYear).sort().forEach(year => {
-                const yearData = currentProduct.dataByYear[year];
-                
-                // Value row
-                const valueRow = ['Customs Value', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, 'Value for: ' + (yearData.unit || 'Unit')];
-                months.forEach(month => {
-                    valueRow.push(yearData.value ? (yearData.value[month] || 0) : 0);
-                });
-                data.push(valueRow);
-
-                // Quantity row
-                const quantityRow = ['First Unit of Quantity', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, yearData.unit || 'Units'];
-                months.forEach(month => {
-                    quantityRow.push(yearData.quantity ? (yearData.quantity[month] || 0) : 0);
-                });
-                data.push(quantityRow);
-            });
-
-            const ws = XLSX.utils.aoa_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Product Data");
-
-            const filename = `HTS_${currentProduct.htsCode}_Data.xlsx`;
-            XLSX.writeFile(wb, filename);
-        };
-        
-        window.switchChartType = function(type) {
-            currentChartType = type;
-            document.querySelectorAll('.toggle-button').forEach(btn => btn.classList.remove('active'));
-            document.querySelector(`.toggle-button[onclick="switchChartType('${type}')"]`).classList.add('active');
-            if (currentProduct) {
-                drawChart(currentProduct, 'timeSeriesChart', currentChartType);
-                drawRecentChart(currentProduct, 'recentChart', currentChartType);
-            }
-        };
-    </script>
-</body>
-</html>
