@@ -23,6 +23,10 @@
             --card-bg: #f5f5f5;
         }
 
+        html {
+            scroll-behavior: smooth;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: var(--background-color);
@@ -643,6 +647,13 @@
             <h3 style="color: var(--primary-color); margin: 20px 0 10px 0;">Top 10 Imports by Value - 2025 YTD</h3>
             <div id="top-imports-list"></div>
         </div>
+
+        <div id="top-drops-section" style="display:none;">
+            <h3 style="color: var(--primary-color); margin: 30px 0 10px 0;">Top 10 Drops in Avg. Monthly Value (Jan-Jul 2024 vs 2025)</h3>
+            <div id="top-drops-value-list"></div>
+            <h3 style="color: var(--primary-color); margin: 30px 0 10px 0;">Top 10 Drops in Avg. Monthly Quantity (Jan-Jul 2024 vs 2025)</h3>
+            <div id="top-drops-quantity-list"></div>
+        </div>
         
         <div class="tabs" id="tabs" style="display: none;">
             <button class="tab active" id="pricePerUnitTab">Price Per Unit ($/Unit)</button>
@@ -813,10 +824,9 @@
                 document.getElementById('country-info').style.display = 'block';
                 document.getElementById('country-list').textContent = Array.from(countriesSet).sort().join(', ');
                 
-                // Calculate and display top 10 imports for 2025
                 calculateTop10Imports();
+                calculateTopDrops();
                 
-                // Show the "See Top 10" button after data is successfully loaded
                 document.getElementById('top10Btn').style.display = 'block';
             } else {
                 document.getElementById('file-info').innerHTML = '<span style="color: red;">No data found in file. Please check the format.</span>';
@@ -826,7 +836,6 @@
         function calculateTop10Imports() {
             const imports2025 = [];
             
-            // Calculate total 2025 value for each product
             Object.values(allProductData).forEach(product => {
                 if (product.dataByYear['2025'] && product.dataByYear['2025'].value) {
                     const valueData = product.dataByYear['2025'].value;
@@ -844,22 +853,73 @@
                 }
             });
             
-            // Sort by total value and get top 10
             imports2025.sort((a, b) => b.totalValue - a.totalValue);
             const top10 = imports2025.slice(0, 10);
             
-            // Display the top 10
             if (top10.length > 0) {
                 displayTop10Imports(top10);
             }
         }
+
+        function calculateTopDrops() {
+            const valueDrops = [];
+            const quantityDrops = [];
+            const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
+
+            const calculateAverage = (yearData, metric) => {
+                if (!yearData || !yearData[metric]) return null;
+                const data = yearData[metric];
+                let total = 0;
+                let count = 0;
+                months.forEach(month => {
+                    if (data[month] != null) {
+                        total += data[month];
+                        count++;
+                    }
+                });
+                return count > 0 ? total / count : null;
+            };
+
+            Object.values(allProductData).forEach(product => {
+                const data2024 = product.dataByYear['2024'];
+                const data2025 = product.dataByYear['2025'];
+
+                if (data2024 && data2025) {
+                    // Calculate for Value
+                    const avgValue2024 = calculateAverage(data2024, 'value');
+                    const avgValue2025 = calculateAverage(data2025, 'value');
+
+                    if (avgValue2024 != null && avgValue2025 != null) {
+                        const change = avgValue2025 - avgValue2024;
+                        if (change < 0) { // We only care about drops
+                            valueDrops.push({ product, change });
+                        }
+                    }
+
+                    // Calculate for Quantity
+                    const avgQuantity2024 = calculateAverage(data2024, 'quantity');
+                    const avgQuantity2025 = calculateAverage(data2025, 'quantity');
+                    
+                    if (avgQuantity2024 != null && avgQuantity2025 != null) {
+                        const change = avgQuantity2025 - avgQuantity2024;
+                        if (change < 0) {
+                             quantityDrops.push({ product, change, unit: data2024.unit || data2025.unit || 'Units' });
+                        }
+                    }
+                }
+            });
+
+            // Sort by change (most negative first) and get top 10
+            valueDrops.sort((a, b) => a.change - b.change);
+            quantityDrops.sort((a, b) => a.change - b.change);
+            
+            displayTopDrops(valueDrops.slice(0, 10), 'value');
+            displayTopDrops(quantityDrops.slice(0, 10), 'quantity');
+        }
         
         window.showTop10 = function() {
-            // Clear any existing results
             document.getElementById('results').innerHTML = '';
-            // Hide tabs
             document.getElementById('tabs').style.display = 'none';
-            // Destroy any existing charts
             if (timeSeriesChart) {
                 timeSeriesChart.destroy();
                 timeSeriesChart = null;
@@ -868,13 +928,11 @@
                 recentChart.destroy();
                 recentChart = null;
             }
-            // Show the top 10 imports section
+            
             document.getElementById('top-imports-section').style.display = 'block';
-            // Clear search input
+            document.getElementById('top-drops-section').style.display = 'block';
             document.getElementById('searchInput').value = '';
             
-            // Only reset country selector if there's more than one country
-            // If there's only one country, keep it selected
             const countriesArray = Array.from(countriesSet);
             if (countriesArray.length > 1) {
                 document.getElementById('countrySelector').value = '';
@@ -882,7 +940,6 @@
                 document.getElementById('searchInput').disabled = true;
                 document.getElementById('searchBtn').disabled = true;
             } else {
-                // Keep the single country selected
                 document.getElementById('countrySelector').value = countriesArray[0];
                 selectedCountry = countriesArray[0];
                 document.getElementById('searchInput').disabled = false;
@@ -891,7 +948,6 @@
         };
         
         function displayTop10Imports(top10) {
-            const section = document.getElementById('top-imports-section');
             const listDiv = document.getElementById('top-imports-list');
             
             let html = '';
@@ -916,22 +972,53 @@
             });
             
             listDiv.innerHTML = html;
-            section.style.display = 'block';
+        }
+
+        function displayTopDrops(top10, type) {
+            const listDivId = type === 'value' ? 'top-drops-value-list' : 'top-drops-quantity-list';
+            const listDiv = document.getElementById(listDivId);
+            if (!listDiv) return;
+
+            let html = '';
+            if (top10.length === 0) {
+                html = '<p style="color: var(--light-text-color); margin-left: 10px;">No significant drops found for this metric.</p>';
+            } else {
+                top10.forEach((item, index) => {
+                    const { product, change } = item;
+                    let formattedChange;
+
+                    if (type === 'value') {
+                        // For value, format as currency
+                        formattedChange = change.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
+                    } else { // quantity
+                        // For quantity, format as a number with the unit
+                        formattedChange = `${change.toLocaleString(undefined, {maximumFractionDigits: 0})} ${item.unit}`;
+                    }
+
+                    html += `
+                        <div class="top-imports-item" onclick="selectTopImport('${product.country}', '${product.htsCode}')">
+                            <span class="top-imports-rank">#${index + 1}</span>
+                            <div class="top-imports-details">
+                                <div class="top-imports-hts">HTS ${product.htsCode} - ${product.country}</div>
+                                <div class="top-imports-desc">${product.description || 'No description available'}</div>
+                            </div>
+                            <span class="top-imports-value" style="color: #c62828;">↓ ${formattedChange}</span>
+                        </div>
+                    `;
+                });
+            }
+            listDiv.innerHTML = html;
         }
         
         window.selectTopImport = function(country, htsCode) {
-            // Set the country selector
             document.getElementById('countrySelector').value = country;
             selectedCountry = country;
             
-            // Enable search controls
             document.getElementById('searchInput').disabled = false;
             document.getElementById('searchBtn').disabled = false;
             
-            // Set the search input to the HTS code
             document.getElementById('searchInput').value = htsCode;
             
-            // Trigger the search
             searchProduct();
         };
 
@@ -1017,11 +1104,9 @@
             });
             selector.disabled = false;
             
-            // If there's only one country, auto-select it
             if (countriesArray.length === 1) {
                 selector.value = countriesArray[0];
                 selectedCountry = countriesArray[0];
-                // Enable search controls since country is already selected
                 document.getElementById('searchInput').disabled = false;
                 document.getElementById('searchBtn').disabled = false;
             }
@@ -1032,15 +1117,13 @@
             if (!searchTerm) return;
             if (!selectedCountry) return;
             
-            // Hide the top 10 imports section when searching
             document.getElementById('top-imports-section').style.display = 'none';
+            document.getElementById('top-drops-section').style.display = 'none';
 
-            // Split the search term into individual words
             const searchTerms = searchTerm.split(/\s+/).filter(word => word.length > 0);
 
             const matches = Object.values(allProductData).filter(p =>
                 p.country === selectedCountry &&
-                // Check if ALL search terms are included in the HTS code or description
                 searchTerms.every(term =>
                     p.htsCode.toLowerCase().includes(term) || p.description.toLowerCase().includes(term)
                 )
@@ -1051,7 +1134,7 @@
                     currentProduct = matches[0];
                     window.lastSearchResults = { [currentProduct.htsCode]: currentProduct };
                     document.getElementById('tabs').style.display = 'flex';
-                    displayResults(currentProduct);
+                    switchTab('pricePerUnit'); // Always default to price per unit view
                 } else {
                     document.getElementById('tabs').style.display = 'none';
                     showProductSelection(matches, document.getElementById('searchInput').value.trim());
@@ -1090,7 +1173,7 @@
             if (window.lastSearchResults && window.lastSearchResults[htsCode]) {
                 currentProduct = window.lastSearchResults[htsCode];
                 document.getElementById('tabs').style.display = 'flex';
-                displayResults(currentProduct);
+                switchTab('pricePerUnit'); // Always default to price per unit view
             }
         };
         
@@ -1111,7 +1194,7 @@
             `;
             
             const sortedYears = Object.keys(product.dataByYear).sort().reverse();
-            const yearsAscending = Object.keys(product.dataByYear).sort(); // For finding previous year data
+            const yearsAscending = Object.keys(product.dataByYear).sort(); 
             
             sortedYears.forEach((year, yearIndex) => {
                 const yearData = product.dataByYear[year];
@@ -1120,7 +1203,6 @@
                 const quantityData = yearData.quantity || {};
                 const unit = yearData.unit || '';
                 
-                // Find previous year data for comparison
                 const prevYearInt = parseInt(year) - 1;
                 const prevYearStr = prevYearInt.toString();
                 const prevYearData = product.dataByYear[prevYearStr];
@@ -1145,12 +1227,10 @@
                     months.forEach(month => {
                         let val, prevVal;
                         
-                        // Calculate current value
                         if (currentView === 'pricePerUnit') {
                             if (valueData[month] && quantityData[month] > 0) {
                                 val = valueData[month] / quantityData[month];
                             }
-                            // Calculate previous year value
                             if (prevYearData && prevYearData.value && prevYearData.quantity) {
                                 if (prevYearData.value[month] && prevYearData.quantity[month] > 0) {
                                     prevVal = prevYearData.value[month] / prevYearData.quantity[month];
@@ -1171,8 +1251,7 @@
                         if (val > 0) {
                             const formatted = currentView === 'pricePerUnit' ? val.toFixed(2) : val.toLocaleString();
                             
-                            // Calculate color based on year-over-year change
-                            let bgColor = '#ffffff'; // Default white
+                            let bgColor = '#ffffff'; 
                             let changePercent = null;
                             
                             if (prevVal && prevVal > 0) {
@@ -1196,7 +1275,6 @@
                 }
             });
 
-            // Add container for the charts
             html += `<div class="chart-controls">
                 <button class="toggle-button ${currentChartType === 'line' ? 'active' : ''}" onclick="switchChartType('line')">Line Chart</button>
                 <button class="toggle-button ${currentChartType === 'bar' ? 'active' : ''}" onclick="switchChartType('bar')">Bar Chart</button>
@@ -1206,7 +1284,6 @@
                         <canvas id="timeSeriesChart"></canvas>
                      </div>`;
             
-            // Add container for the recent chart
             html += `<div class="chart-container">
                         <h3>Recent Trend (2025 onwards)</h3>
                         <canvas id="recentChart"></canvas>
@@ -1215,32 +1292,28 @@
             resultsDiv.innerHTML = html;
             drawChart(product, 'timeSeriesChart', currentChartType);
             drawRecentChart(product, 'recentChart', currentChartType);
+
+            // Scroll to the top of the container after rendering results
+            document.querySelector('.container').scrollIntoView({ behavior: 'smooth' });
         }
         
         function getColorForChange(percentChange) {
-            // Clamp the change to -100% to +100% for color calculation
             const clampedChange = Math.max(-100, Math.min(100, percentChange));
             
             if (Math.abs(clampedChange) < 0.5) {
-                return '#ffffff'; // White for essentially no change
+                return '#ffffff'; 
             }
             
-            // Calculate intensity (0 to 1) based on the magnitude of change
-            // Changes of 100% or more get maximum intensity
             const intensity = Math.min(Math.abs(clampedChange) / 100, 1);
             
             if (clampedChange > 0) {
-                // Red for increases - deeper red for bigger increases
-                // Start from light pink and go to deep red
                 const r = 255;
-                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
-                const b = Math.round(255 - (intensity * 155)); // from 255 to 100
+                const g = Math.round(255 - (intensity * 155)); 
+                const b = Math.round(255 - (intensity * 155)); 
                 return `rgb(${r}, ${g}, ${b})`;
             } else {
-                // Blue for decreases - deeper blue for bigger decreases
-                // Start from light blue and go to deep blue
-                const r = Math.round(255 - (intensity * 155)); // from 255 to 100
-                const g = Math.round(255 - (intensity * 155)); // from 255 to 100
+                const r = Math.round(255 - (intensity * 155)); 
+                const g = Math.round(255 - (intensity * 155)); 
                 const b = 255;
                 return `rgb(${r}, ${g}, ${b})`;
             }
@@ -1287,12 +1360,10 @@
                 });
             });
 
-            if (chartData.length === 0) return; // Don't draw an empty chart
+            if (chartData.length === 0) return; 
 
-            // Calculate mean for the dataset
             const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
             
-            // Create datasets array
             const datasets = [{
                 label: chartLabel,
                 data: chartData,
@@ -1303,7 +1374,6 @@
                 fill: type === 'line'
             }];
             
-            // Add mean line only for line charts
             if (type === 'line') {
                 datasets.push({
                     label: `Mean (${mean.toFixed(2)})`,
@@ -1382,10 +1452,8 @@
             }
             document.getElementById(canvasId).parentElement.style.display = 'block';
 
-            // Calculate mean for the dataset
             const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
             
-            // Create datasets array
             const datasets = [{
                 label: chartLabel,
                 data: chartData,
@@ -1396,7 +1464,6 @@
                 fill: type === 'line'
             }];
             
-            // Add mean line only for line charts
             if (type === 'line') {
                 datasets.push({
                     label: `Mean (${mean.toFixed(2)})`,
@@ -1451,14 +1518,12 @@
             Object.keys(currentProduct.dataByYear).sort().forEach(year => {
                 const yearData = currentProduct.dataByYear[year];
                 
-                // Value row
                 const valueRow = ['Customs Value', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, 'Value for: ' + (yearData.unit || 'Unit')];
                 months.forEach(month => {
                     valueRow.push(yearData.value ? (yearData.value[month] || 0) : 0);
                 });
                 data.push(valueRow);
 
-                // Quantity row
                 const quantityRow = ['First Unit of Quantity', currentProduct.country, currentProduct.htsCode, currentProduct.description, year, yearData.unit || 'Units'];
                 months.forEach(month => {
                     quantityRow.push(yearData.quantity ? (yearData.quantity[month] || 0) : 0);
