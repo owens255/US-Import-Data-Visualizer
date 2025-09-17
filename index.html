@@ -667,12 +667,18 @@
             const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!searchTerm) return;
             if (!selectedCountry) return;
-            
-            const matches = Object.values(allProductData).filter(p => 
-                p.country === selectedCountry && 
-                (p.htsCode.toLowerCase().includes(searchTerm) || p.description.toLowerCase().includes(searchTerm))
+
+            // Split the search term into individual words
+            const searchTerms = searchTerm.split(/\s+/).filter(word => word.length > 0);
+
+            const matches = Object.values(allProductData).filter(p =>
+                p.country === selectedCountry &&
+                // Check if ALL search terms are included in the HTS code or description
+                searchTerms.every(term =>
+                    p.htsCode.toLowerCase().includes(term) || p.description.toLowerCase().includes(term)
+                )
             );
-            
+
             if (matches.length > 0) {
                 if (matches.length === 1) {
                     currentProduct = matches[0];
@@ -685,7 +691,7 @@
                 }
             } else {
                 document.getElementById('tabs').style.display = 'none';
-                document.getElementById('results').innerHTML = `<div class="error">No products found for "${searchTerm}"</div>`;
+                document.getElementById('results').innerHTML = `<div class="error">No products found for "${document.getElementById('searchInput').value.trim()}"</div>`;
             }
         }
         
