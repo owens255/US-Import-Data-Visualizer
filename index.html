@@ -275,6 +275,61 @@
             color: var(--light-text-color);
         }
         
+        .top-imports-item {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .top-imports-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background: #e8eaf6;
+        }
+        
+        .top-imports-rank {
+            font-weight: bold;
+            color: var(--primary-color);
+            min-width: 30px;
+            flex-shrink: 0;
+        }
+        
+        .top-imports-details {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            min-width: 0; /* Allow content to shrink */
+        }
+        
+        .top-imports-hts {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+        
+        .top-imports-desc {
+            font-size: 0.85em;
+            color: var(--light-text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .top-imports-value {
+            font-weight: bold;
+            color: #2e7d32;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-left: auto; /* Push to the right */
+        }
+        
         .info-box {
             background: #e3f2fd;
             border: 1px solid #90caf9;
@@ -461,6 +516,11 @@
             <button id="searchBtn" disabled>Search</button>
         </div>
         
+        <div id="top-imports-section" style="display:none;">
+            <h3 style="color: var(--primary-color); margin: 20px 0 10px 0;">Top 10 Imports by Value - 2025 YTD</h3>
+            <div id="top-imports-list"></div>
+        </div>
+        
         <div class="tabs" id="tabs" style="display: none;">
             <button class="tab active" id="pricePerUnitTab">Price Per Unit ($/Unit)</button>
             <button class="tab" id="valueTab">Customs Value ($)</button>
@@ -577,10 +637,89 @@
                 document.getElementById('file-info').innerHTML = `✅ Successfully loaded! Found data for ${numProducts} products from ${countriesSet.size} countries.`;
                 document.getElementById('country-info').style.display = 'block';
                 document.getElementById('country-list').textContent = Array.from(countriesSet).sort().join(', ');
+                
+                // Calculate and display top 10 imports for 2025
+                calculateTop10Imports();
             } else {
                 document.getElementById('file-info').innerHTML = '<span style="color: red;">No data found in file. Please check the format.</span>';
             }
         }
+        
+        function calculateTop10Imports() {
+            const imports2025 = [];
+            
+            // Calculate total 2025 value for each product
+            Object.values(allProductData).forEach(product => {
+                if (product.dataByYear['2025'] && product.dataByYear['2025'].value) {
+                    const valueData = product.dataByYear['2025'].value;
+                    const totalValue = Object.values(valueData).reduce((sum, val) => sum + (val || 0), 0);
+                    
+                    if (totalValue > 0) {
+                        imports2025.push({
+                            product: product,
+                            totalValue: totalValue,
+                            htsCode: product.htsCode,
+                            description: product.description,
+                            country: product.country
+                        });
+                    }
+                }
+            });
+            
+            // Sort by total value and get top 10
+            imports2025.sort((a, b) => b.totalValue - a.totalValue);
+            const top10 = imports2025.slice(0, 10);
+            
+            // Display the top 10
+            if (top10.length > 0) {
+                displayTop10Imports(top10);
+            }
+        }
+        
+        function displayTop10Imports(top10) {
+            const section = document.getElementById('top-imports-section');
+            const listDiv = document.getElementById('top-imports-list');
+            
+            let html = '';
+            top10.forEach((item, index) => {
+                const formattedValue = item.totalValue.toLocaleString('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+                
+                html += `
+                    <div class="top-imports-item" onclick="selectTopImport('${item.country}', '${item.htsCode}')">
+                        <span class="top-imports-rank">#${index + 1}</span>
+                        <div class="top-imports-details">
+                            <div class="top-imports-hts">HTS ${item.htsCode} - ${item.country}</div>
+                            <div class="top-imports-desc">${item.description || 'No description available'}</div>
+                        </div>
+                        <span class="top-imports-value">${formattedValue}</span>
+                    </div>
+                `;
+            });
+            
+            listDiv.innerHTML = html;
+            section.style.display = 'block';
+        }
+        
+        window.selectTopImport = function(country, htsCode) {
+            // Set the country selector
+            document.getElementById('countrySelector').value = country;
+            selectedCountry = country;
+            
+            // Enable search controls
+            document.getElementById('searchInput').disabled = false;
+            document.getElementById('searchBtn').disabled = false;
+            
+            // Set the search input to the HTS code
+            document.getElementById('searchInput').value = htsCode;
+            
+            // Trigger the search
+            searchProduct();
+        };
 
         function parseSheet(sheetDataAsJson, dataType) {
             const parsedData = {};
@@ -667,6 +806,9 @@
             const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
             if (!searchTerm) return;
             if (!selectedCountry) return;
+            
+            // Hide the top 10 imports section when searching
+            document.getElementById('top-imports-section').style.display = 'none';
 
             // Split the search term into individual words
             const searchTerms = searchTerm.split(/\s+/).filter(word => word.length > 0);
