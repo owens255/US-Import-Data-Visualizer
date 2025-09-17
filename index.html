@@ -586,6 +586,63 @@
             z-index: 1;
             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
+    
+
+        @media (max-width: 768px) {
+            body {
+                /* Reduce overall padding on small screens */
+                padding: 15px;
+            }
+
+            .container {
+                /* Reduce padding inside the main container */
+                padding: 20px;
+            }
+
+            h1 {
+                /* Make the main title smaller */
+                font-size: 1.8em;
+            }
+
+            .subtitle {
+                font-size: 0.9em;
+            }
+
+            .upload-options,
+            .controls-row {
+                /* This is the key fix: stack items vertically instead of in a row */
+                flex-direction: column;
+                align-items: stretch; /* Make items take full width */
+            }
+
+            .shortlist-selector {
+                margin-left: 0; /* Remove margin for stacked layout */
+            }
+
+            .or-divider {
+                /* A self-centering divider for the vertical layout */
+                margin: 10px auto;
+            }
+
+            .month-grid {
+                /* Adjust grid for smaller screens for better spacing */
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+
+            .top-imports-item {
+                /* Allow the right-side value to wrap if needed */
+                flex-wrap: wrap;
+            }
+
+            .top-imports-value {
+                /* Ensure the value takes full width when it wraps */
+                margin-left: 0;
+                margin-top: 5px;
+                text-align: right;
+                width: 100%;
+            }
+        }
+
     </style>
 </head>
 <body>
