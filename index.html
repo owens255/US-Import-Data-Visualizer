@@ -473,6 +473,69 @@
             color: var(--light-text-color);
             font-weight: 600;
         }
+        
+        .help-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            margin-left: 10px;
+            transition: transform 0.2s ease, background 0.2s ease;
+            position: relative;
+        }
+        
+        .help-icon:hover {
+            transform: scale(1.1);
+            background: #303f9f;
+        }
+        
+        .help-tooltip {
+            position: absolute;
+            bottom: calc(100% + 10px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: normal;
+            width: 320px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+            pointer-events: none;
+            line-height: 1.4;
+        }
+        
+        .help-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: #333;
+        }
+        
+        .help-icon:hover .help-tooltip {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .upload-label-container {
+            display: inline-flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -483,9 +546,17 @@
         <div class="upload-section">
             <h3>Upload Your Import Data Excel File or Choose from the Preloaded Shortlist of Major Trade Partners.</h3>
             <div class="upload-options">
-                <label for="file-upload" class="file-label">
-                    Choose Excel File
-                </label>
+                <div class="upload-label-container">
+                    <label for="file-upload" class="file-label">
+                        Choose Excel File
+                    </label>
+                    <div class="help-icon">
+                        ?
+                        <div class="help-tooltip">
+                            Upload Excel exports from the Int'l Trade Commission, Imports for Consumption data sets (key parameters: Full years→Monthly, Individual Countries, Individual Commodities)
+                        </div>
+                    </div>
+                </div>
                 <input type="file" id="file-upload" accept=".xlsx,.xls,.csv">
                 <span class="or-divider">OR</span>
                 <select class="shortlist-selector" id="shortlistSelector">
@@ -514,6 +585,7 @@
             </select>
             <input type="text" id="searchInput" placeholder="Enter HTS code or product description..." disabled>
             <button id="searchBtn" disabled>Search</button>
+            <button id="top10Btn" style="display:none; background: #4CAF50;" onclick="showTop10()">See Top 10</button>
         </div>
         
         <div id="top-imports-section" style="display:none;">
@@ -640,6 +712,9 @@
                 
                 // Calculate and display top 10 imports for 2025
                 calculateTop10Imports();
+                
+                // Show the "See Top 10" button after data is successfully loaded
+                document.getElementById('top10Btn').style.display = 'block';
             } else {
                 document.getElementById('file-info').innerHTML = '<span style="color: red;">No data found in file. Please check the format.</span>';
             }
@@ -675,6 +750,31 @@
                 displayTop10Imports(top10);
             }
         }
+        
+        window.showTop10 = function() {
+            // Clear any existing results
+            document.getElementById('results').innerHTML = '';
+            // Hide tabs
+            document.getElementById('tabs').style.display = 'none';
+            // Destroy any existing charts
+            if (timeSeriesChart) {
+                timeSeriesChart.destroy();
+                timeSeriesChart = null;
+            }
+            if (recentChart) {
+                recentChart.destroy();
+                recentChart = null;
+            }
+            // Show the top 10 imports section
+            document.getElementById('top-imports-section').style.display = 'block';
+            // Clear search input
+            document.getElementById('searchInput').value = '';
+            // Reset country selector if needed
+            document.getElementById('countrySelector').value = '';
+            selectedCountry = '';
+            document.getElementById('searchInput').disabled = true;
+            document.getElementById('searchBtn').disabled = true;
+        };
         
         function displayTop10Imports(top10) {
             const section = document.getElementById('top-imports-section');
@@ -794,12 +894,23 @@
         function populateCountrySelector() {
             const selector = document.getElementById('countrySelector');
             selector.innerHTML = '<option value="">Select Country...</option>';
-            Array.from(countriesSet).sort().forEach(country => {
+            const countriesArray = Array.from(countriesSet).sort();
+            
+            countriesArray.forEach(country => {
                 const option = document.createElement('option');
                 option.value = option.textContent = country;
                 selector.appendChild(option);
             });
             selector.disabled = false;
+            
+            // If there's only one country, auto-select it
+            if (countriesArray.length === 1) {
+                selector.value = countriesArray[0];
+                selectedCountry = countriesArray[0];
+                // Enable search controls since country is already selected
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('searchBtn').disabled = false;
+            }
         }
         
         function searchProduct() {
@@ -957,7 +1068,7 @@
                             
                             let changeIndicator = '';
                             if (changePercent !== null) {
-                                const arrow = changePercent > 0 ? '↑' : changePercent < 0 ? '↓' : '→';
+                                const arrow = changePercent > 0 ? '↑' : changePercent < 0 ? '↓' : '↔';
                                 const absChange = Math.abs(changePercent);
                                 changeIndicator = `<span class="change-indicator">${arrow} ${absChange.toFixed(0)}%</span>`;
                             }
@@ -1064,20 +1175,40 @@
 
             if (chartData.length === 0) return; // Don't draw an empty chart
 
+            // Calculate mean for the dataset
+            const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
+            
+            // Create datasets array
+            const datasets = [{
+                label: chartLabel,
+                data: chartData,
+                borderColor: 'rgba(63, 81, 181, 1)',
+                backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: type === 'line'
+            }];
+            
+            // Add mean line only for line charts
+            if (type === 'line') {
+                datasets.push({
+                    label: `Mean (${mean.toFixed(2)})`,
+                    data: Array(chartData.length).fill(mean),
+                    borderColor: 'rgba(255, 99, 71, 0.7)',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                });
+            }
+            
             const ctx = document.getElementById(canvasId).getContext('2d');
             const newChart = new Chart(ctx, {
                 type: type,
                 data: {
                     labels: chartLabels,
-                    datasets: [{
-                        label: chartLabel,
-                        data: chartData,
-                        borderColor: 'rgba(63, 81, 181, 1)',
-                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: type === 'line'
-                    }]
+                    datasets: datasets
                 },
                 options: {
                     scales: { y: { beginAtZero: true } },
@@ -1137,20 +1268,40 @@
             }
             document.getElementById(canvasId).parentElement.style.display = 'block';
 
+            // Calculate mean for the dataset
+            const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
+            
+            // Create datasets array
+            const datasets = [{
+                label: chartLabel,
+                data: chartData,
+                borderColor: 'rgba(63, 81, 181, 1)',
+                backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
+                borderWidth: 2,
+                tension: 0.1,
+                fill: type === 'line'
+            }];
+            
+            // Add mean line only for line charts
+            if (type === 'line') {
+                datasets.push({
+                    label: `Mean (${mean.toFixed(2)})`,
+                    data: Array(chartData.length).fill(mean),
+                    borderColor: 'rgba(255, 99, 71, 0.7)',
+                    borderDash: [5, 5],
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0
+                });
+            }
+            
             const ctx = document.getElementById(canvasId).getContext('2d');
             recentChart = new Chart(ctx, {
                 type: type,
                 data: {
                     labels: chartLabels,
-                    datasets: [{
-                        label: chartLabel,
-                        data: chartData,
-                        borderColor: 'rgba(63, 81, 181, 1)',
-                        backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
-                        borderWidth: 2,
-                        tension: 0.1,
-                        fill: type === 'line'
-                    }]
+                    datasets: datasets
                 },
                 options: {
                     scales: { y: { beginAtZero: true } },
