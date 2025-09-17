@@ -587,7 +587,7 @@
 <body>
     <div class="container">
         <h1>📊 US Import Data Query Tool</h1>
-        <p class="subtitle">Search customs value, quantity, and value/unit data by HTS code or product description for goods imported for consumption.<br>See year-over-year changes in these metrics (% figures in righthand corner of monthly data) and longer term trendlines.<br><br>Data Source:  U.S. International Trade Commission, Imports for Consumption</p>
+        <p class="subtitle">Search customs value, quantity, and value/unit data by HTS code or product description for goods imported for consumption.<br>See year-over-year changes in these metrics and longer term trendlines.<br><br>Data Source:  U.S. International Trade Commission, Imports for Consumption</p>
         
         <div class="upload-section">
             <h3>Upload Your Import Data Excel File or Choose from the Preloaded Shortlist of Major Trade Partners.</h3>
@@ -867,11 +867,22 @@
             document.getElementById('top-imports-section').style.display = 'block';
             // Clear search input
             document.getElementById('searchInput').value = '';
-            // Reset country selector if needed
-            document.getElementById('countrySelector').value = '';
-            selectedCountry = '';
-            document.getElementById('searchInput').disabled = true;
-            document.getElementById('searchBtn').disabled = true;
+            
+            // Only reset country selector if there's more than one country
+            // If there's only one country, keep it selected
+            const countriesArray = Array.from(countriesSet);
+            if (countriesArray.length > 1) {
+                document.getElementById('countrySelector').value = '';
+                selectedCountry = '';
+                document.getElementById('searchInput').disabled = true;
+                document.getElementById('searchBtn').disabled = true;
+            } else {
+                // Keep the single country selected
+                document.getElementById('countrySelector').value = countriesArray[0];
+                selectedCountry = countriesArray[0];
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('searchBtn').disabled = false;
+            }
         };
         
         function displayTop10Imports(top10) {
