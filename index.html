@@ -536,12 +536,58 @@
             display: inline-flex;
             align-items: center;
         }
+        
+        .progress-container {
+            display: none;
+            margin-top: 15px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3f51b5 0%, #5c6bc0 100%);
+            border-radius: 10px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .progress-text {
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📊 US Import Data Query Tool</h1>
-        <p class="subtitle">Search customs value, quantity, and value/unit data by HTS code or product description for goods imported for consumption.<br>See year-over-year changes in these metrics and longer term trendlines.<br><br>Data Source:  U.S. International Trade Commission, Imports for Consumption</p>
+        <p class="subtitle">Search customs value, quantity, and value/unit data by HTS code or product description for goods imported for consumption.<br>See year-over-year changes in these metrics (% figures in righthand corner of monthly data) and longer term trendlines.<br><br>Data Source:  U.S. International Trade Commission, Imports for Consumption</p>
         
         <div class="upload-section">
             <h3>Upload Your Import Data Excel File or Choose from the Preloaded Shortlist of Major Trade Partners.</h3>
@@ -573,6 +619,11 @@
                 </select>
             </div>
             <div class="file-info" id="file-info"></div>
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar" id="progressBar">
+                    <span class="progress-text" id="progressText">Loading...</span>
+                </div>
+            </div>
         </div>
         
         <div class="info-box" id="country-info" style="display:none;">
@@ -628,50 +679,97 @@
             document.getElementById('shortlistSelector').addEventListener('change', handleShortlistSelection);
         });
         
+        function showProgress(message, percent) {
+            const container = document.getElementById('progressContainer');
+            const bar = document.getElementById('progressBar');
+            const text = document.getElementById('progressText');
+            
+            container.style.display = 'block';
+            bar.style.width = percent + '%';
+            text.textContent = message;
+        }
+        
+        function hideProgress() {
+            setTimeout(() => {
+                document.getElementById('progressContainer').style.display = 'none';
+            }, 500);
+        }
+        
         async function handleShortlistSelection(event) {
             const fileName = event.target.value;
             if (!fileName) return;
             
-            document.getElementById('file-info').innerHTML = `📁 Loading ${fileName} from GitHub...`;
+            document.getElementById('file-info').innerHTML = '';
+            showProgress(`Loading ${fileName}...`, 20);
             
             try {
                 // Construct the URL to fetch from the data folder in your GitHub Pages
                 const url = `https://owens255.github.io/US-Import-Data-Visualizer/data/${fileName}`;
                 
+                showProgress(`Downloading ${fileName}...`, 40);
                 const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`Failed to fetch file: ${response.statusText}`);
                 }
                 
+                showProgress(`Processing ${fileName}...`, 60);
                 const arrayBuffer = await response.arrayBuffer();
                 const data = new Uint8Array(arrayBuffer);
+                
+                showProgress(`Parsing Excel data...`, 80);
                 const workbook = XLSX.read(data, { type: 'array' });
+                
+                showProgress(`Finalizing...`, 95);
                 processWorkbook(workbook);
+                
+                showProgress(`Complete!`, 100);
+                hideProgress();
                 
             } catch (error) {
                 console.error('Error loading file from GitHub:', error);
                 document.getElementById('file-info').innerHTML = `<span style="color: red;">Error loading file from GitHub: ${error.message}</span>`;
+                hideProgress();
             }
         }
         
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-            document.getElementById('file-info').innerHTML = `📁 Loading: ${file.name}...`;
+            document.getElementById('file-info').innerHTML = '';
+            showProgress(`Loading ${file.name}...`, 30);
+            
             const reader = new FileReader();
             reader.onload = e => {
                 try {
+                    showProgress(`Processing Excel data...`, 60);
                     const data = new Uint8Array(e.target.result);
+                    
+                    showProgress(`Parsing sheets...`, 80);
                     const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    showProgress(`Analyzing data...`, 95);
                     processWorkbook(workbook);
+                    
+                    showProgress(`Complete!`, 100);
+                    hideProgress();
                 } catch (error) {
                     console.error('Error processing Excel:', error);
                     document.getElementById('file-info').innerHTML = `<span style="color: red;">Error processing file: ${error.message}</span>`;
+                    hideProgress();
                 }
             };
             reader.onerror = () => {
                 document.getElementById('file-info').innerHTML = '<span style="color: red;">Error reading file</span>';
+                hideProgress();
             };
+            
+            reader.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = Math.round((e.loaded / e.total) * 50);
+                    showProgress(`Reading file...`, percentComplete);
+                }
+            };
+            
             reader.readAsArrayBuffer(file);
         }
 
