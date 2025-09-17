@@ -735,16 +735,12 @@
             }
             
             let html = backButton + `
-                <div class="product-info">
-                    <h2>HTS Code: ${product.htsCode}</h2>
-                    <p><strong>Description:</strong> ${product.description || 'N/A'}</p>
-                    <p><strong>Country:</strong> ${product.country}</p>
-                    <button id="exportBtn" onclick="exportProductData()">Export to Excel</button>
-                </div>
-                <div class="chart-controls">
-                    <button class="toggle-button ${currentChartType === 'line' ? 'active' : ''}" onclick="switchChartType('line')">Line Chart</button>
-                    <button class="toggle-button ${currentChartType === 'bar' ? 'active' : ''}" onclick="switchChartType('bar')">Bar Chart</button>
-                </div>
+        <div class="product-info">
+            <h2>HTS Code: ${product.htsCode}</h2>
+            <p><strong>Description:</strong> ${product.description || 'N/A'}</p>
+            <p><strong>Country:</strong> ${product.country}</p>
+            <button id="exportBtn" onclick="exportProductData()">Export to Excel</button>
+        </div>
             `;
             
             const sortedYears = Object.keys(product.dataByYear).sort().reverse();
@@ -829,12 +825,16 @@
                             html += `<div class="month-item no-data"><div class="month-name">${month}</div><div class="value">-</div></div>`;
                         }
                     });
-                    html += '</div></div>';
+            html += '</div></div>';
                 }
             });
 
             // Add container for the charts
-            html += `<div class="chart-container">
+            html += `<div class="chart-controls">
+                <button class="toggle-button ${currentChartType === 'line' ? 'active' : ''}" onclick="switchChartType('line')">Line Chart</button>
+                <button class="toggle-button ${currentChartType === 'bar' ? 'active' : ''}" onclick="switchChartType('bar')">Bar Chart</button>
+            </div>
+            <div class="chart-container">
                         <h3>Historical Trend</h3>
                         <canvas id="timeSeriesChart"></canvas>
                      </div>`;
