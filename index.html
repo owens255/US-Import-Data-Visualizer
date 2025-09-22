@@ -725,8 +725,7 @@
     </div>
 
     <div class="disclaimer" style="text-align: center; margin-top: 40px; font-size: 0.8em; color: #757575;">
-        <p>Copyright © Alex Owens. All rights reserved.</p>
-        <p>This offering is made without any warranty, express or implied.</p>
+        <p> </p>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1392,12 +1391,21 @@
 
             const yearsWithData = Object.keys(product.dataByYear).map(Number).sort((a, b) => a - b);
             if (yearsWithData.length === 0) return;
+            
+            // --- MODIFIED LOGIC ---
+            // Set a default start year based on the preloaded data's range.
+            const defaultStartYear = 2020;
+            // Get the actual first year from the current product's data.
+            const firstDataYear = yearsWithData[0];
+            // Use the EARLIER of the two dates to start the graph.
+            // This handles custom uploads with data before 2020.
+            const minYear = Math.min(defaultStartYear, firstDataYear);
+            // --- END MODIFICATION ---
 
-            const minYear = yearsWithData[0];
             const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // MODIFICATION: Find the last month with data in the maxYear
+            // Find the last month with data in the maxYear
             let maxMonthIndex = -1;
             if (product.dataByYear[maxYear]) {
                 const maxYearValueData = product.dataByYear[maxYear].value || {};
@@ -1418,7 +1426,7 @@
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                // MODIFICATION: Determine the months to loop through for the current year
+                // Determine the months to loop through for the current year
                 const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
 
                 monthsToLoop.forEach((month) => {
@@ -1458,21 +1466,18 @@
                 borderWidth: 2,
                 tension: 0.1,
                 fill: type === 'line',
-                spanGaps: false // Explicitly create breaks for null data
+                spanGaps: false
+            }, {
+                label: `Mean (${mean.toFixed(2)})`,
+                data: Array(chartData.length).fill(mean),
+                borderColor: 'rgba(255, 99, 71, 0.7)',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0,
+                type: 'line'
             }];
-            
-            if (type === 'line') {
-                datasets.push({
-                    label: `Mean (${mean.toFixed(2)})`,
-                    data: Array(chartData.length).fill(mean),
-                    borderColor: 'rgba(255, 99, 71, 0.7)',
-                    borderDash: [5, 5],
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0
-                });
-            }
             
             const ctx = document.getElementById(canvasId).getContext('2d');
             const newChart = new Chart(ctx, {
@@ -1513,7 +1518,7 @@
             const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // MODIFICATION: Find the last month with data in the maxYear
+            // Find the last month with data in the maxYear
             let maxMonthIndex = -1;
             if (product.dataByYear[maxYear]) {
                 const maxYearValueData = product.dataByYear[maxYear].value || {};
@@ -1534,7 +1539,7 @@
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                // MODIFICATION: Determine the months to loop through for the current year
+                // Determine the months to loop through for the current year
                 const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
 
                 monthsToLoop.forEach((month) => {
@@ -1578,21 +1583,18 @@
                 borderWidth: 2,
                 tension: 0.1,
                 fill: type === 'line',
-                spanGaps: false // Explicitly create breaks
+                spanGaps: false
+            }, {
+                label: `Mean (${mean.toFixed(2)})`,
+                data: Array(chartData.length).fill(mean),
+                borderColor: 'rgba(255, 99, 71, 0.7)',
+                borderDash: [5, 5],
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: false,
+                tension: 0,
+                type: 'line'
             }];
-            
-            if (type === 'line') {
-                datasets.push({
-                    label: `Mean (${mean.toFixed(2)})`,
-                    data: Array(chartData.length).fill(mean),
-                    borderColor: 'rgba(255, 99, 71, 0.7)',
-                    borderDash: [5, 5],
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0
-                });
-            }
             
             const ctx = document.getElementById(canvasId).getContext('2d');
             recentChart = new Chart(ctx, {
