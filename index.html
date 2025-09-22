@@ -1340,7 +1340,7 @@
                 <button class="toggle-button ${currentChartType === 'bar' ? 'active' : ''}" onclick="switchChartType('bar')">Bar Chart</button>
             </div>
             <div class="chart-container">
-                        <h3>Historical Trend</h3>
+                        <h3>Historical Trend (Averages Reflect Across Months with Imports)</h3>
                         <canvas id="timeSeriesChart"></canvas>
                      </div>`;
             
@@ -1390,39 +1390,65 @@
             const chartData = [];
             let chartLabel = '';
 
-            const years = Object.keys(product.dataByYear).sort();
+            const yearsWithData = Object.keys(product.dataByYear).map(Number).sort((a, b) => a - b);
+            if (yearsWithData.length === 0) return;
+
+            const minYear = yearsWithData[0];
+            const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            years.forEach(year => {
-                const yearData = product.dataByYear[year];
+            // MODIFICATION: Find the last month with data in the maxYear
+            let maxMonthIndex = -1;
+            if (product.dataByYear[maxYear]) {
+                const maxYearValueData = product.dataByYear[maxYear].value || {};
+                const maxYearQuantityData = product.dataByYear[maxYear].quantity || {};
+                const allMonthsInMaxYear = new Set([...Object.keys(maxYearValueData), ...Object.keys(maxYearQuantityData)]);
+                
+                for (let i = months.length - 1; i >= 0; i--) {
+                    if (allMonthsInMaxYear.has(months[i])) {
+                        maxMonthIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            for (let year = minYear; year <= maxYear; year++) {
+                const yearStr = String(year);
+                const yearData = product.dataByYear[yearStr] || {};
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                months.forEach((month, index) => {
-                    let dataPoint;
+                // MODIFICATION: Determine the months to loop through for the current year
+                const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
+
+                monthsToLoop.forEach((month) => {
+                    chartLabels.push(`${month.substring(0,3)} ${yearStr}`);
+                    let dataPoint = null; // Default to null to create gaps
+
                     if (currentView === 'pricePerUnit') {
                         chartLabel = 'Price Per Unit';
-                        if (valueData[month] && quantityData[month] > 0) {
+                        if (valueData[month] && quantityData[month] && quantityData[month] > 0) {
                             dataPoint = valueData[month] / quantityData[month];
                         }
                     } else if (currentView === 'value') {
                         chartLabel = 'Customs Value ($)';
-                        dataPoint = valueData[month];
+                        if (valueData[month]) {
+                           dataPoint = valueData[month];
+                        }
                     } else { // quantity
-                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
-                        dataPoint = quantityData[month];
+                        chartLabel = `Quantity (${yearData.unit || product.dataByYear[yearsWithData[0]]?.unit || 'Units'})`;
+                        if(quantityData[month]) {
+                           dataPoint = quantityData[month];
+                        }
                     }
-
-                    if (dataPoint) {
-                        chartLabels.push(`${month.substring(0,3)} ${year}`);
-                        chartData.push(dataPoint);
-                    }
+                    chartData.push(dataPoint);
                 });
-            });
+            }
 
-            if (chartData.length === 0) return; 
+            const validDataPoints = chartData.filter(d => d !== null);
+            if (validDataPoints.length === 0) return; 
 
-            const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
+            const mean = validDataPoints.reduce((sum, val) => sum + val, 0) / validDataPoints.length;
             
             const datasets = [{
                 label: chartLabel,
@@ -1431,7 +1457,8 @@
                 backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
                 borderWidth: 2,
                 tension: 0.1,
-                fill: type === 'line'
+                fill: type === 'line',
+                spanGaps: false // Explicitly create breaks for null data
             }];
             
             if (type === 'line') {
@@ -1476,43 +1503,72 @@
             const chartData = [];
             let chartLabel = '';
 
-            const years = Object.keys(product.dataByYear).sort().filter(y => parseInt(y) >= 2025);
+            const yearsWithData = Object.keys(product.dataByYear).map(Number).sort((a,b) => a - b).filter(y => y >= 2025);
+            if (yearsWithData.length === 0) {
+                 document.getElementById(canvasId).parentElement.style.display = 'none';
+                 return;
+            }
+
+            const minYear = yearsWithData[0];
+            const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            years.forEach(year => {
-                const yearData = product.dataByYear[year];
+            // MODIFICATION: Find the last month with data in the maxYear
+            let maxMonthIndex = -1;
+            if (product.dataByYear[maxYear]) {
+                const maxYearValueData = product.dataByYear[maxYear].value || {};
+                const maxYearQuantityData = product.dataByYear[maxYear].quantity || {};
+                const allMonthsInMaxYear = new Set([...Object.keys(maxYearValueData), ...Object.keys(maxYearQuantityData)]);
+                
+                for (let i = months.length - 1; i >= 0; i--) {
+                    if (allMonthsInMaxYear.has(months[i])) {
+                        maxMonthIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            for (let year = minYear; year <= maxYear; year++) {
+                const yearStr = String(year);
+                const yearData = product.dataByYear[yearStr] || {};
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                months.forEach((month, index) => {
-                    let dataPoint;
+                // MODIFICATION: Determine the months to loop through for the current year
+                const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
+
+                monthsToLoop.forEach((month) => {
+                    chartLabels.push(`${month.substring(0,3)} ${yearStr}`);
+                    let dataPoint = null; // Default to null
+
                     if (currentView === 'pricePerUnit') {
                         chartLabel = 'Price Per Unit';
-                        if (valueData[month] && quantityData[month] > 0) {
+                        if (valueData[month] && quantityData[month] && quantityData[month] > 0) {
                             dataPoint = valueData[month] / quantityData[month];
                         }
                     } else if (currentView === 'value') {
                         chartLabel = 'Customs Value ($)';
-                        dataPoint = valueData[month];
+                        if (valueData[month]) {
+                           dataPoint = valueData[month];
+                        }
                     } else { // quantity
-                        chartLabel = `Quantity (${yearData.unit || 'Units'})`;
-                        dataPoint = quantityData[month];
+                        chartLabel = `Quantity (${yearData.unit || product.dataByYear[yearsWithData[0]]?.unit || 'Units'})`;
+                        if (quantityData[month]) {
+                           dataPoint = quantityData[month];
+                        }
                     }
-
-                    if (dataPoint) {
-                        chartLabels.push(`${month.substring(0,3)} ${year}`);
-                        chartData.push(dataPoint);
-                    }
+                    chartData.push(dataPoint);
                 });
-            });
+            }
             
-            if (chartData.length === 0) {
+            const validDataPoints = chartData.filter(d => d !== null);
+            if (validDataPoints.length === 0) {
                 document.getElementById(canvasId).parentElement.style.display = 'none';
                 return;
             }
             document.getElementById(canvasId).parentElement.style.display = 'block';
 
-            const mean = chartData.reduce((sum, val) => sum + val, 0) / chartData.length;
+            const mean = validDataPoints.reduce((sum, val) => sum + val, 0) / validDataPoints.length;
             
             const datasets = [{
                 label: chartLabel,
@@ -1521,7 +1577,8 @@
                 backgroundColor: type === 'bar' ? 'rgba(63, 81, 181, 0.8)' : 'rgba(63, 81, 181, 0.2)',
                 borderWidth: 2,
                 tension: 0.1,
-                fill: type === 'line'
+                fill: type === 'line',
+                spanGaps: false // Explicitly create breaks
             }];
             
             if (type === 'line') {
