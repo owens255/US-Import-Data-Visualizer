@@ -586,63 +586,113 @@
             z-index: 1;
             text-shadow: 0 1px 2px rgba(0,0,0,0.2);
         }
+
+        .disclaimer a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 15px;
+        }
+        .disclaimer a:hover {
+            text-decoration: underline;
+        }
     
+        /* --- NEW MODAL STYLES --- */
+        .modal-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1001;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 30px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 15px;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            line-height: 1.6;
+        }
+        
+        .modal-content h2 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        
+        .modal-content a {
+            color: var(--primary-color);
+        }
+        
+        .modal-content p {
+            margin-bottom: 1em;
+        }
+
+        .close-btn {
+            color: #aaa;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            line-height: 1;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        /* --- END MODAL STYLES --- */
 
         @media (max-width: 768px) {
             body {
-                /* Reduce overall padding on small screens */
                 padding: 15px;
             }
-
             .container {
-                /* Reduce padding inside the main container */
                 padding: 20px;
             }
-
             h1 {
-                /* Make the main title smaller */
                 font-size: 1.8em;
             }
-
             .subtitle {
                 font-size: 0.9em;
             }
-
             .upload-options,
             .controls-row {
-                /* This is the key fix: stack items vertically instead of in a row */
                 flex-direction: column;
-                align-items: stretch; /* Make items take full width */
+                align-items: stretch;
             }
-
             .shortlist-selector {
-                margin-left: 0; /* Remove margin for stacked layout */
+                margin-left: 0;
             }
-
             .or-divider {
-                /* A self-centering divider for the vertical layout */
                 margin: 10px auto;
             }
-
             .month-grid {
-                /* Adjust grid for smaller screens for better spacing */
                 grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             }
-
             .top-imports-item {
-                /* Allow the right-side value to wrap if needed */
                 flex-wrap: wrap;
             }
-
             .top-imports-value {
-                /* Ensure the value takes full width when it wraps */
                 margin-left: 0;
                 margin-top: 5px;
                 text-align: right;
                 width: 100%;
             }
         }
-
     </style>
 
     <script data-goatcounter="https://owens255.goatcounter.com/count"
@@ -725,7 +775,29 @@
     </div>
 
     <div class="disclaimer" style="text-align: center; margin-top: 40px; font-size: 0.8em; color: #757575;">
-        <p> </p>
+        <p>For informational purposes only. No warranty expressed or implied. 
+            <a href="#" id="licensesLink">Licenses</a>
+        </p>
+    </div>
+
+    <div id="licensesModal" class="modal-overlay">
+        <div class="modal-content">
+            <span id="closeModalBtn" class="close-btn">&times;</span>
+            <h2>Open Source Software</h2>
+            <p>This application incorporates open-source software. We are grateful to the developers for their contributions.</p>
+            
+            <p>
+                <strong>SheetJS (xlsx)</strong><br>
+                Copyright 2013-present SheetJS LLC<br>
+                Licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener noreferrer">Apache License, Version 2.0</a>.
+            </p>
+            
+            <p>
+                <strong>Chart.js</strong><br>
+                Copyright 2024 Chart.js Contributors<br>
+                Licensed under the <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a>.
+            </p>
+        </div>
     </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -752,6 +824,27 @@
                 document.getElementById('searchBtn').disabled = !selectedCountry;
             });
             document.getElementById('shortlistSelector').addEventListener('change', handleShortlistSelection);
+
+            // --- NEW MODAL JAVASCRIPT ---
+            const modal = document.getElementById('licensesModal');
+            const licensesLink = document.getElementById('licensesLink');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+
+            licensesLink.onclick = function(e) {
+                e.preventDefault();
+                modal.style.display = "flex";
+            }
+
+            closeModalBtn.onclick = function() {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+            // --- END MODAL JAVASCRIPT ---
         });
         
         function showProgress(message, percent) {
@@ -854,7 +947,6 @@
 
             let valueSheet, quantitySheet;
             
-            // Find the correct sheet names by checking for keywords in a case-insensitive, flexible way
             const sheetNames = Object.keys(workbook.Sheets);
             for (const name of sheetNames) {
                 const lowerName = name.toLowerCase();
@@ -944,18 +1036,16 @@
                 const data2025 = product.dataByYear['2025'];
 
                 if (data2024 && data2025) {
-                    // Calculate for Value
                     const avgValue2024 = calculateAverage(data2024, 'value');
                     const avgValue2025 = calculateAverage(data2025, 'value');
 
                     if (avgValue2024 != null && avgValue2025 != null) {
                         const change = avgValue2025 - avgValue2024;
-                        if (change < 0) { // We only care about drops
+                        if (change < 0) { 
                             valueDrops.push({ product, change });
                         }
                     }
 
-                    // Calculate for Quantity
                     const avgQuantity2024 = calculateAverage(data2024, 'quantity');
                     const avgQuantity2025 = calculateAverage(data2025, 'quantity');
                     
@@ -968,7 +1058,6 @@
                 }
             });
 
-            // Sort by change (most negative first) and get top 10
             valueDrops.sort((a, b) => a.change - b.change);
             quantityDrops.sort((a, b) => a.change - b.change);
             
@@ -1047,10 +1136,8 @@
                     let formattedChange;
 
                     if (type === 'value') {
-                        // For value, format as currency
                         formattedChange = change.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-                    } else { // quantity
-                        // For quantity, format as a number with the unit
+                    } else { 
                         formattedChange = `${change.toLocaleString(undefined, {maximumFractionDigits: 0})} ${item.unit}`;
                     }
 
@@ -1121,7 +1208,7 @@
                 if (Object.keys(months).length > 0) {
                     if (dataType === 'value') {
                         parsedData[productKey].dataByYear[year].value = months;
-                    } else { // quantity
+                    } else { 
                         parsedData[productKey].dataByYear[year].quantity = months;
                         parsedData[productKey].dataByYear[year].unit = unit;
                     }
@@ -1193,7 +1280,7 @@
                     currentProduct = matches[0];
                     window.lastSearchResults = { [currentProduct.htsCode]: currentProduct };
                     document.getElementById('tabs').style.display = 'flex';
-                    switchTab('pricePerUnit'); // Always default to price per unit view
+                    switchTab('pricePerUnit');
                 } else {
                     document.getElementById('tabs').style.display = 'none';
                     showProductSelection(matches, document.getElementById('searchInput').value.trim());
@@ -1232,7 +1319,7 @@
             if (window.lastSearchResults && window.lastSearchResults[htsCode]) {
                 currentProduct = window.lastSearchResults[htsCode];
                 document.getElementById('tabs').style.display = 'flex';
-                switchTab('pricePerUnit'); // Always default to price per unit view
+                switchTab('pricePerUnit');
             }
         };
         
@@ -1253,7 +1340,6 @@
             `;
             
             const sortedYears = Object.keys(product.dataByYear).sort().reverse();
-            const yearsAscending = Object.keys(product.dataByYear).sort(); 
             
             sortedYears.forEach((year, yearIndex) => {
                 const yearData = product.dataByYear[year];
@@ -1352,7 +1438,6 @@
             drawChart(product, 'timeSeriesChart', currentChartType);
             drawRecentChart(product, 'recentChart', currentChartType);
 
-            // Scroll to the top of the container after rendering results
             document.querySelector('.container').scrollIntoView({ behavior: 'smooth' });
         }
         
@@ -1392,20 +1477,13 @@
             const yearsWithData = Object.keys(product.dataByYear).map(Number).sort((a, b) => a - b);
             if (yearsWithData.length === 0) return;
             
-            // --- MODIFIED LOGIC ---
-            // Set a default start year based on the preloaded data's range.
             const defaultStartYear = 2020;
-            // Get the actual first year from the current product's data.
             const firstDataYear = yearsWithData[0];
-            // Use the EARLIER of the two dates to start the graph.
-            // This handles custom uploads with data before 2020.
             const minYear = Math.min(defaultStartYear, firstDataYear);
-            // --- END MODIFICATION ---
 
             const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // Find the last month with data in the maxYear
             let maxMonthIndex = -1;
             if (product.dataByYear[maxYear]) {
                 const maxYearValueData = product.dataByYear[maxYear].value || {};
@@ -1426,12 +1504,11 @@
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                // Determine the months to loop through for the current year
                 const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
 
                 monthsToLoop.forEach((month) => {
                     chartLabels.push(`${month.substring(0,3)} ${yearStr}`);
-                    let dataPoint = null; // Default to null to create gaps
+                    let dataPoint = null;
 
                     if (currentView === 'pricePerUnit') {
                         chartLabel = 'Price Per Unit';
@@ -1443,7 +1520,7 @@
                         if (valueData[month]) {
                            dataPoint = valueData[month];
                         }
-                    } else { // quantity
+                    } else { 
                         chartLabel = `Quantity (${yearData.unit || product.dataByYear[yearsWithData[0]]?.unit || 'Units'})`;
                         if(quantityData[month]) {
                            dataPoint = quantityData[month];
@@ -1518,7 +1595,6 @@
             const maxYear = yearsWithData[yearsWithData.length - 1];
             const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-            // Find the last month with data in the maxYear
             let maxMonthIndex = -1;
             if (product.dataByYear[maxYear]) {
                 const maxYearValueData = product.dataByYear[maxYear].value || {};
@@ -1539,12 +1615,11 @@
                 const valueData = yearData.value || {};
                 const quantityData = yearData.quantity || {};
 
-                // Determine the months to loop through for the current year
                 const monthsToLoop = (year === maxYear && maxMonthIndex !== -1) ? months.slice(0, maxMonthIndex + 1) : months;
 
                 monthsToLoop.forEach((month) => {
                     chartLabels.push(`${month.substring(0,3)} ${yearStr}`);
-                    let dataPoint = null; // Default to null
+                    let dataPoint = null;
 
                     if (currentView === 'pricePerUnit') {
                         chartLabel = 'Price Per Unit';
@@ -1556,7 +1631,7 @@
                         if (valueData[month]) {
                            dataPoint = valueData[month];
                         }
-                    } else { // quantity
+                    } else { 
                         chartLabel = `Quantity (${yearData.unit || product.dataByYear[yearsWithData[0]]?.unit || 'Units'})`;
                         if (quantityData[month]) {
                            dataPoint = quantityData[month];
